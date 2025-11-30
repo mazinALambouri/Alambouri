@@ -7,7 +7,7 @@ import { Button } from './components/Button';
 import { Plane } from 'lucide-react';
 
 function App() {
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [, setTrips] = useState<Trip[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
 
