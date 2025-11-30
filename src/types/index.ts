@@ -12,12 +12,16 @@ export interface Place {
   description: string;
   images: string[];
   timeToReach: number; // in minutes
-  price: number; // in BHD or local currency
+  price: number; // in OMR
   currency: string;
   accommodationType?: string;
   location?: string;
   distanceFromUser?: number; // in km
   timeCategory?: TimeCategory; // When during the day this place is for
+  time?: string; // Specific time for the place (e.g., "09:00", "14:30")
+  needsApproval?: boolean; // Whether this place needs approval from all travelers
+  approvedBy?: string[]; // List of traveler IDs who approved this place
+  totalTravelers?: number; // Total number of travelers for approval tracking
 }
 
 export interface Day {

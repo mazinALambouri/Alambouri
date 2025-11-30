@@ -1,8 +1,20 @@
 import { useState } from 'react';
 import { Trip, Day, Place, TimeCategory } from '../types';
-import { deletePlace } from '../lib/db';
+import { deletePlace, approvePlace, unapprovePlace } from '../lib/db';
 import { AddPlaces } from './AddPlaces.tsx';
-import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2 } from 'lucide-react';
+import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle } from 'lucide-react';
+
+// Format time to HH:mm format
+const formatTime = (time: string): string => {
+  if (!time) return '';
+  // If time is already in HH:mm format, return it
+  if (/^\d{2}:\d{2}$/.test(time)) return time;
+  // Otherwise, try to parse and format it
+  const [hours, minutes] = time.split(':');
+  const h = hours.padStart(2, '0');
+  const m = minutes?.padStart(2, '0') || '00';
+  return `${h}:${m}`;
+};
 
 interface DayDetailProps {
   trip: Trip;
@@ -21,6 +33,9 @@ const timeCategoryConfig: Record<TimeCategory, { label: string; icon: any; bgCol
   hotel: { label: 'Hotel', icon: Hotel, bgColor: 'bg-gray-50', textColor: 'text-gray-700', borderColor: 'border-gray-200' },
 };
 
+// For demo purposes - in production this would come from auth
+const CURRENT_USER_ID = 'user-1';
+
 export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) {
   const [showAddPlaces, setShowAddPlaces] = useState(false);
 
@@ -29,6 +44,18 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
       await deletePlace(trip.id, day.id, placeId);
       onUpdate();
     }
+  };
+
+  const handleApprovePlace = async (place: Place) => {
+    const approvedBy = place.approvedBy || [];
+    const hasUserApproved = approvedBy.includes(CURRENT_USER_ID);
+    
+    if (hasUserApproved) {
+      await unapprovePlace(place.id, CURRENT_USER_ID);
+    } else {
+      await approvePlace(place.id, CURRENT_USER_ID);
+    }
+    onUpdate();
   };
 
   if (showAddPlaces) {
@@ -60,6 +87,8 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                 place={place} 
                 number={index + 1}
                 onDelete={() => handleDeletePlace(place.id)}
+                onApprove={() => handleApprovePlace(place)}
+                currentUserId={CURRENT_USER_ID}
               />
             </div>
           ))}
@@ -67,7 +96,7 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
           {/* Add More Button */}
           <button
             onClick={() => setShowAddPlaces(true)}
-            className="w-full py-3 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-colors mt-4"
+            className="w-full py-3 text-white rounded-full font-medium transition-colors mt-4" style={{ backgroundColor: '#5A1B1C' }}
           >
             + Add More Places
           </button>
@@ -99,7 +128,7 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
         <div className="pt-6 pb-4">
           <button
             onClick={() => onDeleteDay(day.id)}
-            className="w-full py-3 border-2 border-red-600 text-red-600 rounded-full font-medium hover:bg-red-50 transition-colors"
+            className="w-full py-3 border-2 rounded-full font-medium transition-colors" style={{ borderColor: '#5A1B1C', color: '#5A1B1C' }}
           >
             Delete Day {day.dayNumber}
           </button>
@@ -113,49 +142,105 @@ interface TimelinePlaceProps {
   place: Place;
   number: number;
   onDelete: () => void;
+  onApprove: () => void;
+  currentUserId: string;
 }
 
-function TimelinePlace({ place, number, onDelete }: TimelinePlaceProps) {
+function TimelinePlace({ place, number, onDelete, onApprove, currentUserId }: TimelinePlaceProps) {
   const timeCategory = place.timeCategory || 'visit';
   const config = timeCategoryConfig[timeCategory];
   const Icon = config.icon;
+  
+  // Check approval status
+  const needsApproval = place.needsApproval || false;
+  const approvedBy = place.approvedBy || [];
+  const totalTravelers = place.totalTravelers || 6;
+  const approvalCount = approvedBy.length;
+  const disapprovalCount = totalTravelers - approvalCount;
+  const isApproved = approvalCount >= totalTravelers;
+  const hasUserApproved = approvedBy.includes(currentUserId);
 
   return (
     <div className="flex items-start gap-4">
       {/* Number Badge */}
-      <div className="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 z-10">
+      <div className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-sm flex-shrink-0 z-10" style={{ backgroundColor: '#5A1B1C' }}>
         {number}
       </div>
 
       <div className="flex-1">
         {/* Time Category Badge */}
         <div className="flex items-center gap-2 mb-3">
+          {place.time && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+              <Clock size={12} />
+              <span className="text-xs font-medium">{formatTime(place.time)}</span>
+            </div>
+          )}
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${config.bgColor} ${config.textColor} ${config.borderColor}`}>
             <Icon size={14} />
             <span className="text-xs font-medium">{config.label}</span>
           </div>
           <button
             onClick={onDelete}
-            className="ml-auto p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="ml-auto p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100"
           >
             <Trash2 size={16} />
           </button>
         </div>
 
         {/* Place Title */}
-        <h3 className="text-xl font-bold text-gray-900 mb-3">{place.name}</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">{place.name}</h3>
+
+        {/* Approval Badge */}
+        {needsApproval && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Approve/Unapprove Button */}
+              <button
+                onClick={onApprove}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  hasUserApproved
+                    ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-green-50 hover:border-green-200'
+                }`}
+              >
+                <Check size={14} />
+                {hasUserApproved ? 'You approved' : 'Tap to approve'}
+              </button>
+
+              {/* Approval Count */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 border border-green-200">
+                <Check size={12} className="text-green-600" />
+                <span className="text-xs font-semibold text-green-700">{approvalCount}</span>
+              </div>
+
+              {/* Disapproval Count */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-full border" style={{ backgroundColor: '#5A1B1C10', borderColor: '#5A1B1C30' }}>
+                <AlertCircle size={12} style={{ color: '#5A1B1C' }} />
+                <span className="text-xs font-semibold" style={{ color: '#5A1B1C' }}>{disapprovalCount}</span>
+              </div>
+
+              {/* Status */}
+              {isApproved ? (
+                <span className="text-xs font-medium text-green-600">✓ All approved!</span>
+              ) : (
+                <span className="text-xs text-gray-500">Need {disapprovalCount} more</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Location & Price */}
         <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
           {place.location && (
             <span className="flex items-center gap-1">
-              <MapPin size={14} className="text-red-500" />
+              <MapPin size={14} style={{ color: '#5A1B1C' }} />
               {place.location}
             </span>
           )}
           {place.price > 0 && (
-            <span className="font-medium text-red-600">
-              {place.price} {place.currency}
+            <span className="font-medium" style={{ color: '#5A1B1C' }}>
+              {place.price} OMR
             </span>
           )}
         </div>

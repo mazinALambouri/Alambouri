@@ -1,54 +1,55 @@
 import { Trip, TripStats, Day } from '../types';
 import { format, differenceInDays } from 'date-fns';
 
-const EXCHANGE_RATES: Record<string, number> = {
-  'SAR': 1,
-  'QAR': 1.03, // 1 QAR ≈ 1.03 SAR
-  'AED': 1.02, // 1 AED ≈ 1.02 SAR
-  'OMR': 9.75, // 1 OMR ≈ 9.75 SAR
-  'KWD': 12.25, // 1 KWD ≈ 12.25 SAR
-  'BHD': 9.95, // 1 BHD ≈ 9.95 SAR
-  'USD': 3.75, // 1 USD ≈ 3.75 SAR
+// Exchange rates to OMR (Omani Rial)
+const EXCHANGE_RATES_TO_OMR: Record<string, number> = {
+  'OMR': 1,
+  'SAR': 0.103, // 1 SAR ≈ 0.103 OMR
+  'QAR': 0.106, // 1 QAR ≈ 0.106 OMR
+  'AED': 0.105, // 1 AED ≈ 0.105 OMR
+  'KWD': 1.26,  // 1 KWD ≈ 1.26 OMR
+  'BHD': 1.02,  // 1 BHD ≈ 1.02 OMR
+  'USD': 0.385, // 1 USD ≈ 0.385 OMR
 };
 
 export function calculateTripStats(trip: Trip): TripStats {
-  let totalCostSAR = 0;
+  let totalCostOMR = 0;
   let totalDistance = 0;
   let totalPlaces = 0;
 
   trip.days.forEach(day => {
     day.places.forEach(place => {
-      // Convert price to SAR
-      const rate = EXCHANGE_RATES[place.currency] || 1;
-      totalCostSAR += place.price * rate;
+      // Convert price to OMR
+      const rate = EXCHANGE_RATES_TO_OMR[place.currency] || 1;
+      totalCostOMR += place.price * rate;
 
-      totalDistance += place.timeToReach;
+      totalDistance += place.timeToReach || 0;
       totalPlaces++;
     });
   });
 
   return {
-    totalCost: Math.round(totalCostSAR),
+    totalCost: Math.round(totalCostOMR * 100) / 100, // Round to 2 decimal places
     totalDistance,
     totalPlaces,
-    currency: 'SAR' // Standardize on SAR for the total
+    currency: 'OMR' // Standardize on OMR for the total
   };
 }
 
 export function calculateDayStats(day: Day) {
-  let totalCostSAR = 0;
+  let totalCostOMR = 0;
   let totalDistance = 0;
 
   day.places.forEach(place => {
-    const rate = EXCHANGE_RATES[place.currency] || 1;
-    totalCostSAR += place.price * rate;
+    const rate = EXCHANGE_RATES_TO_OMR[place.currency] || 1;
+    totalCostOMR += place.price * rate;
     totalDistance += place.timeToReach;
   });
 
   return {
-    totalCost: Math.round(totalCostSAR),
+    totalCost: Math.round(totalCostOMR * 100) / 100,
     totalDistance,
-    currency: 'SAR'
+    currency: 'OMR'
   };
 }
 

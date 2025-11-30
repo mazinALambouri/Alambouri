@@ -1,53 +1,75 @@
 import { Trip } from '../types';
-import { addPlaceToDay } from './db';
-import { recommendedPlaces } from '../data/recommendations';
+import { addPlaceToDay, fetchRecommendations } from './db';
 
 // Pre-populate the 10-day Gulf road trip itinerary
 export async function populateGulfItinerary(trip: Trip): Promise<void> {
+  // Fetch recommendations from Supabase
+  const recommendedPlaces = await fetchRecommendations();
+  
+  if (recommendedPlaces.length === 0) {
+    console.log('No recommendations found in database');
+    return;
+  }
+  
+  // Helper to find place by name
+  const findPlace = (name: string) => recommendedPlaces.find(p => p.name.includes(name));
+  
   // Day 1: Travel day from Sohar to Doha (no places, just driving)
   
   // Day 2: Doha - First day
   if (trip.days[1]) {
-    await addPlaceToDay(trip.id, trip.days[1].id, recommendedPlaces[0]); // The Pearl-Qatar
-    await addPlaceToDay(trip.id, trip.days[1].id, recommendedPlaces[1]); // Museum of Islamic Art
+    const pearl = findPlace('Pearl-Qatar');
+    const museum = findPlace('Museum of Islamic Art');
+    if (pearl) await addPlaceToDay(trip.id, trip.days[1].id, pearl);
+    if (museum) await addPlaceToDay(trip.id, trip.days[1].id, museum);
   }
   
   // Day 3: Doha - Second day
   if (trip.days[2]) {
-    await addPlaceToDay(trip.id, trip.days[2].id, recommendedPlaces[2]); // Souq Waqif
-    await addPlaceToDay(trip.id, trip.days[2].id, recommendedPlaces[3]); // Katara Cultural Village
+    const souq = findPlace('Souq Waqif');
+    const katara = findPlace('Katara');
+    if (souq) await addPlaceToDay(trip.id, trip.days[2].id, souq);
+    if (katara) await addPlaceToDay(trip.id, trip.days[2].id, katara);
   }
   
   // Day 4: Al-Ahsa - First day (travel + arrive)
   if (trip.days[3]) {
-    await addPlaceToDay(trip.id, trip.days[3].id, recommendedPlaces[4]); // Al-Ahsa Oasis
+    const oasis = findPlace('Al-Ahsa Oasis');
+    if (oasis) await addPlaceToDay(trip.id, trip.days[3].id, oasis);
   }
   
   // Day 5: Al-Ahsa - Exploration
   if (trip.days[4]) {
-    await addPlaceToDay(trip.id, trip.days[4].id, recommendedPlaces[5]); // Qasr Ibrahim
+    const qasr = findPlace('Qasr Ibrahim');
+    if (qasr) await addPlaceToDay(trip.id, trip.days[4].id, qasr);
   }
   
   // Day 6: Travel day to Kuwait (no places, just driving)
   
   // Day 7: Kuwait City - Exploration
   if (trip.days[6]) {
-    await addPlaceToDay(trip.id, trip.days[6].id, recommendedPlaces[6]); // Kuwait Towers
-    await addPlaceToDay(trip.id, trip.days[6].id, recommendedPlaces[7]); // The Avenues Mall
+    const towers = findPlace('Kuwait Towers');
+    const avenues = findPlace('Avenues Mall');
+    if (towers) await addPlaceToDay(trip.id, trip.days[6].id, towers);
+    if (avenues) await addPlaceToDay(trip.id, trip.days[6].id, avenues);
   }
   
   // Day 8: Travel day to Hail (no places, just driving)
   
-  // Day 9: Hail - Exploration
+  // Day 9: Hail - Exploration  
   if (trip.days[8]) {
-    await addPlaceToDay(trip.id, trip.days[8].id, recommendedPlaces[8]); // Jubbah Rock Art
-    await addPlaceToDay(trip.id, trip.days[8].id, recommendedPlaces[9]); // Qishlah Palace
+    const jubbah = findPlace('Jubbah');
+    const qishlah = findPlace('Qishlah');
+    if (jubbah) await addPlaceToDay(trip.id, trip.days[8].id, jubbah);
+    if (qishlah) await addPlaceToDay(trip.id, trip.days[8].id, qishlah);
   }
   
   // Day 10: Riyadh then back to Sohar
   if (trip.days[9]) {
-    await addPlaceToDay(trip.id, trip.days[9].id, recommendedPlaces[10]); // Masmak Fortress
-    await addPlaceToDay(trip.id, trip.days[9].id, recommendedPlaces[11]); // Kingdom Centre
+    const masmak = findPlace('Masmak');
+    const kingdom = findPlace('Kingdom Centre');
+    if (masmak) await addPlaceToDay(trip.id, trip.days[9].id, masmak);
+    if (kingdom) await addPlaceToDay(trip.id, trip.days[9].id, kingdom);
   }
 }
 

@@ -21,7 +21,7 @@ export function Button({
         {
           'bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800': variant === 'primary',
           'bg-gray-200 text-gray-900 hover:bg-gray-300 active:bg-gray-400': variant === 'secondary',
-          'bg-red-600 text-white hover:bg-red-700 active:bg-red-800': variant === 'danger',
+          'text-white hover:opacity-90 active:opacity-80': variant === 'danger',
           'bg-transparent text-gray-700 hover:bg-gray-100 active:bg-gray-200': variant === 'ghost',
           'px-3 py-1.5 text-sm': size === 'sm',
           'px-4 py-2 text-base': size === 'md',
@@ -29,6 +29,7 @@ export function Button({
         },
         className
       )}
+      style={variant === 'danger' ? { backgroundColor: '#5A1B1C' } : {}}
       {...props}
     >
       {children}

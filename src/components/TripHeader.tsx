@@ -21,13 +21,13 @@ export function TripHeader({ trip, selectedDayId, onDaySelect }: TripHeaderProps
 
       {/* Date Cards */}
       <div className="flex items-center justify-center gap-4 pb-8">
-        <div className="bg-red-600 text-white rounded-lg px-6 py-4 text-center shadow-lg">
+        <div className="text-white rounded-lg px-6 py-4 text-center shadow-lg" style={{ backgroundColor: '#5A1B1C' }}>
           <div className="text-xs uppercase opacity-90">{formatDateCard(trip.startDate)}</div>
           <div className="text-4xl font-bold my-1">{formatDay(trip.startDate)}</div>
           <div className="text-xs opacity-90">2025</div>
         </div>
         <div className="w-8 h-0.5 bg-gray-400"></div>
-        <div className="bg-red-600 text-white rounded-lg px-6 py-4 text-center shadow-lg">
+        <div className="text-white rounded-lg px-6 py-4 text-center shadow-lg" style={{ backgroundColor: '#5A1B1C' }}>
           <div className="text-xs uppercase opacity-90">{formatDateCard(trip.endDate)}</div>
           <div className="text-4xl font-bold my-1">{formatDay(trip.endDate)}</div>
           <div className="text-xs opacity-90">2025</div>
@@ -43,9 +43,10 @@ export function TripHeader({ trip, selectedDayId, onDaySelect }: TripHeaderProps
               onClick={() => onDaySelect(day.id)}
               className={`flex-shrink-0 px-6 py-3 font-bold text-sm border-b-4 transition-colors ${
                 selectedDayId === day.id
-                  ? 'border-red-600 text-gray-900'
+                  ? 'text-gray-900'
                   : 'border-transparent text-gray-500'
               }`}
+              style={selectedDayId === day.id ? { borderBottomColor: '#5A1B1C' } : {}}
             >
               <div>Day {day.dayNumber}</div>
               <div className="text-xs font-normal text-gray-500">{formatDay(day.date)} {formatDateCard(day.date)} 2025</div>
