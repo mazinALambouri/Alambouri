@@ -423,3 +423,26 @@ export async function fetchRecommendations(): Promise<RecommendedPlace[]> {
 
   return data.map(mapRecommendation);
 }
+
+// --- Image Upload ---
+
+export async function uploadImage(file: File): Promise<string | null> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `place-images/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error('Error uploading image:', uploadError);
+    return null;
+  }
+
+  const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+  return data.publicUrl;
+}

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Search, ArrowLeft, Clock, MapPin, Plus, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, ArrowLeft, Clock, MapPin, Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Trip, Day, PlaceCategory, TimeCategory, RecommendedPlace } from '../types';
-import { addPlaceToDay, fetchRecommendations } from '../lib/db';
+import { addPlaceToDay, fetchRecommendations, uploadImage } from '../lib/db';
 
 interface AddPlacesProps {
   trip: Trip;
@@ -95,6 +95,42 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
     needsApproval: false,
   });
 
+  // Image upload state
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+  const [customImagePreview, setCustomImagePreview] = useState<string | null>(null);
+  const [uploadingCustomImage, setUploadingCustomImage] = useState(false);
+  const customImageInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit modal image upload state
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCustomImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCustomImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCustomImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const filteredPlaces = recommendations.filter((place: RecommendedPlace) => {
     const matchesSearch = place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       place.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -109,6 +145,18 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       return;
     }
 
+    let imageUrl = customPlace.imageUrl;
+
+    // Upload image if file is selected
+    if (customImageFile) {
+      setUploadingCustomImage(true);
+      const uploadedUrl = await uploadImage(customImageFile);
+      setUploadingCustomImage(false);
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      }
+    }
+
     const newPlace = {
       name: customPlace.name,
       type: customPlace.timeCategory === 'breakfast' || customPlace.timeCategory === 'lunch' || customPlace.timeCategory === 'dinner' ? 'meal' as const :
@@ -118,7 +166,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                  customPlace.timeCategory === 'hotel' ? 'Hotels' :
                  customPlace.timeCategory === 'prayer' ? 'Prayer' : 'Attractions'] as PlaceCategory[],
       description: customPlace.description || 'Custom place',
-      images: customPlace.imageUrl ? [customPlace.imageUrl] : ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop'],
+      images: imageUrl ? [imageUrl] : ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop'],
       timeToReach: 30,
       price: customPlace.price,
       currency: 'OMR',
@@ -145,6 +193,8 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       imageUrl: '',
       needsApproval: false,
     });
+    setCustomImageFile(null);
+    setCustomImagePreview(null);
     setShowCustomForm(false);
     onClose();
   };
@@ -310,16 +360,52 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
               </div>
             </div>
             
-            {/* Image URL */}
+            {/* Image Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Image URL (Optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Image (Optional)</label>
               <input
-                type="text"
-                placeholder="https://..."
-                value={customPlace.imageUrl}
-                onChange={(e) => setCustomPlace({ ...customPlace, imageUrl: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                type="file"
+                ref={customImageInputRef}
+                accept="image/*"
+                onChange={handleCustomImageSelect}
+                className="hidden"
               />
+              <div className="flex gap-3 items-start">
+                {customImagePreview ? (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    <img
+                      src={customImagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomImageFile(null);
+                        setCustomImagePreview(null);
+                        if (customImageInputRef.current) {
+                          customImageInputRef.current.value = '';
+                        }
+                      }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <ImageIcon size={24} className="text-gray-400" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => customImageInputRef.current?.click()}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={16} />
+                  {customImagePreview ? 'Change Image' : 'Upload Image'}
+                </button>
+              </div>
             </div>
 
             {/* Needs Approval Toggle */}
@@ -345,13 +431,15 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleAddCustomPlace}
-                className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm" style={{ backgroundColor: '#5A1B1C' }}
+                disabled={uploadingCustomImage}
+                className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm disabled:opacity-50" style={{ backgroundColor: '#5A1B1C' }}
               >
-                Add Place
+                {uploadingCustomImage ? 'Uploading...' : 'Add Place'}
               </button>
               <button
                 onClick={() => setShowCustomForm(false)}
-                className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700"
+                disabled={uploadingCustomImage}
+                className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -524,30 +612,56 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
             </div>
 
             <div className="p-4 pb-8 safe-bottom space-y-4">
-              {/* Image Preview & Edit */}
+              {/* Image Preview & Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Image</label>
+                <input
+                  type="file"
+                  ref={editImageInputRef}
+                  accept="image/*"
+                  onChange={handleEditImageSelect}
+                  className="hidden"
+                />
                 <div className="flex gap-3 items-start">
-                  {editedRecommendation.imageUrl && (
-                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                  {(editImagePreview || editedRecommendation.imageUrl) ? (
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                       <img
-                        src={editedRecommendation.imageUrl}
+                        src={editImagePreview || editedRecommendation.imageUrl}
                         alt={editedRecommendation.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop';
                         }}
                       />
+                      {editImagePreview && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditImageFile(null);
+                            setEditImagePreview(null);
+                            if (editImageInputRef.current) {
+                              editImageInputRef.current.value = '';
+                            }
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-300">
+                      <ImageIcon size={24} className="text-gray-400" />
                     </div>
                   )}
-                  <input
-                    type="text"
-                    placeholder="Image URL..."
-                    value={editedRecommendation.imageUrl}
-                    onChange={(e) => setEditedRecommendation({ ...editedRecommendation, imageUrl: e.target.value })}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
-                    style={{ '--tw-ring-color': '#5A1B1C' } as any}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => editImageInputRef.current?.click()}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Upload size={16} />
+                    {editImagePreview ? 'Change Image' : 'Upload New Image'}
+                  </button>
                 </div>
               </div>
 
@@ -627,8 +741,21 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                 <button
                   onClick={async () => {
                     const timeCategory = selectedRecommendation.timeCategory || 'visit';
-                    const updatedImages = editedRecommendation.imageUrl 
-                      ? [editedRecommendation.imageUrl, ...selectedRecommendation.images.slice(1)]
+                    
+                    let finalImageUrl = editedRecommendation.imageUrl;
+                    
+                    // Upload new image if selected
+                    if (editImageFile) {
+                      setUploadingEditImage(true);
+                      const uploadedUrl = await uploadImage(editImageFile);
+                      setUploadingEditImage(false);
+                      if (uploadedUrl) {
+                        finalImageUrl = uploadedUrl;
+                      }
+                    }
+                    
+                    const updatedImages = finalImageUrl 
+                      ? [finalImageUrl, ...selectedRecommendation.images.slice(1)]
                       : selectedRecommendation.images;
                     await addPlaceToDay(trip.id, day.id, { 
                       ...selectedRecommendation, 
@@ -640,17 +767,25 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                       timeCategory,
                       time: editedRecommendation.time || undefined 
                     });
+                    setEditImageFile(null);
+                    setEditImagePreview(null);
                     setSelectedRecommendation(null);
                     onClose();
                   }}
-                  className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm" 
+                  disabled={uploadingEditImage}
+                  className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm disabled:opacity-50" 
                   style={{ backgroundColor: '#5A1B1C' }}
                 >
-                  Add to Day {day.dayNumber}
+                  {uploadingEditImage ? 'Uploading...' : `Add to Day ${day.dayNumber}`}
                 </button>
                 <button
-                  onClick={() => setSelectedRecommendation(null)}
-                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700"
+                  onClick={() => {
+                    setEditImageFile(null);
+                    setEditImagePreview(null);
+                    setSelectedRecommendation(null);
+                  }}
+                  disabled={uploadingEditImage}
+                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
