@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, ArrowLeft, Clock, MapPin, Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
 import { Trip, Day, PlaceCategory, TimeCategory, RecommendedPlace } from '../types';
-import { addPlaceToDay, fetchRecommendations, uploadImage } from '../lib/db';
+import { addPlaceToDay, fetchRecommendations, uploadImage, updateRecommendation, deleteRecommendations, createRecommendation } from '../lib/db';
+import { Trash2, Check } from 'lucide-react';
 
 interface AddPlacesProps {
   trip: Trip;
@@ -101,11 +102,118 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
   const [uploadingCustomImage, setUploadingCustomImage] = useState(false);
   const customImageInputRef = useRef<HTMLInputElement>(null);
 
-  // Edit modal image upload state
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
-  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  // Edit modal image upload state - support multiple files
+  const [editImageFiles, setEditImageFiles] = useState<File[]>([]);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editImagesToDelete, setEditImagesToDelete] = useState<string[]>([]);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
+
+  // Selection mode for deleting recommendations
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deletingRecommendations, setDeletingRecommendations] = useState(false);
+
+  // Add new recommendation modal state
+  const [showAddRecommendation, setShowAddRecommendation] = useState(false);
+  const [newRecommendation, setNewRecommendation] = useState({
+    name: '',
+    description: '',
+    location: '',
+    price: 0,
+    timeCategory: 'visit' as TimeCategory,
+    category: 'Attractions' as PlaceCategory,
+  });
+  const [newRecImageFiles, setNewRecImageFiles] = useState<File[]>([]);
+  const [newRecImagePreviews, setNewRecImagePreviews] = useState<string[]>([]);
+  const [savingNewRecommendation, setSavingNewRecommendation] = useState(false);
+  const newRecImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleNewRecImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setNewRecImageFiles(prev => [...prev, ...newFiles]);
+      newFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setNewRecImagePreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeNewRecImage = (index: number) => {
+    setNewRecImageFiles(prev => prev.filter((_, i) => i !== index));
+    setNewRecImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleSelectRecommendation = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.length} recommendation(s)?`)) return;
+    
+    setDeletingRecommendations(true);
+    await deleteRecommendations(selectedIds);
+    setRecommendations(prev => prev.filter(r => !selectedIds.includes(r.id || '')));
+    setSelectedIds([]);
+    setSelectionMode(false);
+    setDeletingRecommendations(false);
+  };
+
+  const handleAddNewRecommendation = async () => {
+    if (!newRecommendation.name.trim()) {
+      alert('Please enter a name');
+      return;
+    }
+
+    setSavingNewRecommendation(true);
+
+    // Upload images
+    const uploadedUrls: string[] = [];
+    for (const file of newRecImageFiles) {
+      const url = await uploadImage(file);
+      if (url) uploadedUrls.push(url);
+    }
+
+    const result = await createRecommendation({
+      name: newRecommendation.name,
+      type: newRecommendation.timeCategory === 'breakfast' || newRecommendation.timeCategory === 'lunch' || newRecommendation.timeCategory === 'dinner' ? 'meal' :
+            newRecommendation.timeCategory === 'hotel' ? 'hotel' :
+            newRecommendation.timeCategory === 'prayer' ? 'prayer' : 'attraction',
+      category: [newRecommendation.category],
+      description: newRecommendation.description || 'No description',
+      images: uploadedUrls,
+      price: newRecommendation.price,
+      currency: 'OMR',
+      location: newRecommendation.location || '',
+      timeCategory: newRecommendation.timeCategory,
+    });
+
+    if (result) {
+      setRecommendations(prev => [result, ...prev]);
+    }
+
+    // Reset form
+    setNewRecommendation({
+      name: '',
+      description: '',
+      location: '',
+      price: 0,
+      timeCategory: 'visit',
+      category: 'Attractions',
+    });
+    setNewRecImageFiles([]);
+    setNewRecImagePreviews([]);
+    setShowAddRecommendation(false);
+    setSavingNewRecommendation(false);
+  };
 
   const handleCustomImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -120,15 +228,33 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
   };
 
   const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setEditImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setEditImageFiles(prev => [...prev, ...newFiles]);
+      
+      // Create previews for all new files
+      newFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditImagePreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
     }
+  };
+
+  const removeNewImage = (index: number) => {
+    setEditImageFiles(prev => prev.filter((_, i) => i !== index));
+    setEditImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const markImageForDeletion = (imageUrl: string) => {
+    setEditImagesToDelete(prev => [...prev, imageUrl]);
+  };
+
+  const unmarkImageForDeletion = (imageUrl: string) => {
+    setEditImagesToDelete(prev => prev.filter(url => url !== imageUrl));
   };
 
   const filteredPlaces = recommendations.filter((place: RecommendedPlace) => {
@@ -457,6 +583,58 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
         </div>
       </div>
 
+      {/* Recommendations Management Bar */}
+      <div className="px-4 pb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {selectionMode ? (
+            <>
+              <button
+                onClick={() => {
+                  setSelectionMode(false);
+                  setSelectedIds([]);
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <span className="text-sm text-gray-500">
+                {selectedIds.length} selected
+              </span>
+            </>
+          ) : (
+            <button
+              onClick={() => setSelectionMode(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              <Trash2 size={14} />
+              Select to Delete
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {selectionMode && selectedIds.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              disabled={deletingRecommendations}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              {deletingRecommendations ? 'Deleting...' : `Delete (${selectedIds.length})`}
+            </button>
+          )}
+          {!selectionMode && (
+            <button
+              onClick={() => setShowAddRecommendation(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-lg"
+              style={{ backgroundColor: '#5A1B1C' }}
+            >
+              <Plus size={14} />
+              Add New
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="px-4 pb-4 space-y-3">
         {/* Time Category Filters */}
@@ -515,47 +693,81 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
           </div>
         ) : filteredPlaces.length > 0 ? (
           <div className="space-y-3">
-            {filteredPlaces.map((place: RecommendedPlace, index: number) => (
-              <div key={index} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200">
-                <div className="flex gap-3 p-3">
-                  {/* Image */}
+            {filteredPlaces.map((place: RecommendedPlace, index: number) => {
+              const isSelected = place.id ? selectedIds.includes(place.id) : false;
+              return (
+                <div 
+                  key={place.id || index} 
+                  className={`bg-white rounded-xl overflow-hidden shadow-sm border-2 transition-colors ${
+                    isSelected ? 'border-red-400 bg-red-50' : 'border-gray-200'
+                  }`}
+                  onClick={selectionMode && place.id ? () => toggleSelectRecommendation(place.id!) : undefined}
+                >
+                  {/* Selection Checkbox */}
+                  {selectionMode && (
+                    <div className="flex items-center gap-2 px-3 pt-2">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        isSelected ? 'bg-red-500 border-red-500' : 'border-gray-300'
+                      }`}>
+                        {isSelected && <Check size={14} className="text-white" />}
+                      </div>
+                      <span className="text-xs text-gray-500">Tap to {isSelected ? 'deselect' : 'select'}</span>
+                    </div>
+                  )}
+
+                  {/* Image Gallery */}
                   {place.images.length > 0 && (
-                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                      <img
-                        src={place.images[0]}
-                        alt={place.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
+                    <div className="flex overflow-x-auto scrollbar-hide gap-1 p-2 pb-0">
+                      {place.images.map((img, imgIndex) => (
+                        <div 
+                          key={imgIndex} 
+                          className={`${place.images.length === 1 ? 'w-full' : 'w-32 flex-shrink-0'} h-24 rounded-lg overflow-hidden bg-gray-200`}
+                        >
+                          <img
+                            src={img}
+                            alt={`${place.name} ${imgIndex + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ))}
                     </div>
                   )}
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
+                  <div className="p-3 pt-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{place.name}</h3>
                         <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                           <MapPin size={10} />
                           {place.location || 'Gulf Region'}
                         </p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setSelectedRecommendation(place);
-                          setEditedRecommendation({
-                            name: place.name,
-                            description: place.description,
-                            price: place.price,
-                            time: '',
-                            imageUrl: place.images[0] || '',
-                            location: place.location || '',
-                          });
-                        }}
-                        className="flex-shrink-0 px-3 py-1.5 text-white rounded-lg text-xs font-semibold transition-colors" style={{ backgroundColor: '#5A1B1C' }}
-                      >
-                        + Add
-                      </button>
+                      {!selectionMode && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Reset image states
+                            setEditImageFiles([]);
+                            setEditImagePreviews([]);
+                            setEditImagesToDelete([]);
+                            // Set recommendation and form data
+                            setSelectedRecommendation(place);
+                            setEditedRecommendation({
+                              name: place.name,
+                              description: place.description,
+                              price: place.price,
+                              time: '',
+                              imageUrl: place.images[0] || '',
+                              location: place.location || '',
+                            });
+                          }}
+                          className="flex-shrink-0 px-3 py-1.5 text-white rounded-lg text-xs font-semibold transition-colors" style={{ backgroundColor: '#5A1B1C' }}
+                        >
+                          + Add
+                        </button>
+                      )}
                     </div>
                     <p className="text-xs text-gray-600 mt-1 line-clamp-2">{place.description}</p>
                     <div className="flex items-center gap-2 mt-2">
@@ -569,11 +781,16 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                       <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
                         {place.category[0]}
                       </span>
+                      {place.images.length > 1 && (
+                        <span className="text-xs text-gray-400">
+                          {place.images.length} photos
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="py-12 text-center">
@@ -594,11 +811,11 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       {selectedRecommendation && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setSelectedRecommendation(null)}>
           <div 
-            className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up"
+            className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white p-4 border-b border-gray-100 flex items-center justify-between">
+            {/* Modal Header - Fixed */}
+            <div className="flex-shrink-0 bg-white p-4 border-b border-gray-100 flex items-center justify-between rounded-t-3xl">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Edit & Add Place</h3>
                 <p className="text-sm text-gray-500">Customize before adding</p>
@@ -611,58 +828,104 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
               </button>
             </div>
 
-            <div className="p-4 pb-8 safe-bottom space-y-4">
-              {/* Image Preview & Upload */}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 pb-8 safe-bottom space-y-4">
+              {/* Existing Images Gallery with Delete */}
+              {selectedRecommendation.images.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Current Images ({selectedRecommendation.images.length - editImagesToDelete.length} of {selectedRecommendation.images.length})
+                  </label>
+                  <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2">
+                    {selectedRecommendation.images.map((img, idx) => {
+                      const isMarkedForDeletion = editImagesToDelete.includes(img);
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 ${isMarkedForDeletion ? 'opacity-40' : ''}`}
+                        >
+                          <img
+                            src={img}
+                            alt={`${selectedRecommendation.name} ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {isMarkedForDeletion ? (
+                            <button
+                              type="button"
+                              onClick={() => unmarkImageForDeletion(img)}
+                              className="absolute inset-0 flex items-center justify-center bg-black/50"
+                            >
+                              <span className="text-white text-xs font-medium">Undo</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => markImageForDeletion(img)}
+                              className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {editImagesToDelete.length > 0 && (
+                    <p className="text-xs text-red-500 mt-1">{editImagesToDelete.length} image(s) will be removed</p>
+                  )}
+                </div>
+              )}
+
+              {/* New Images to Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Image</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Add New Images {editImagePreviews.length > 0 && `(${editImagePreviews.length} selected)`}
+                </label>
                 <input
                   type="file"
                   ref={editImageInputRef}
                   accept="image/*"
+                  multiple
                   onChange={handleEditImageSelect}
                   className="hidden"
                 />
-                <div className="flex gap-3 items-start">
-                  {(editImagePreview || editedRecommendation.imageUrl) ? (
-                    <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-                      <img
-                        src={editImagePreview || editedRecommendation.imageUrl}
-                        alt={editedRecommendation.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop';
-                        }}
-                      />
-                      {editImagePreview && (
+                
+                {/* New images preview */}
+                {editImagePreviews.length > 0 && (
+                  <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2 mb-2">
+                    {editImagePreviews.map((preview, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 border-2 border-green-500"
+                      >
+                        <img
+                          src={preview}
+                          alt={`New image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
                         <button
                           type="button"
-                          onClick={() => {
-                            setEditImageFile(null);
-                            setEditImagePreview(null);
-                            if (editImageInputRef.current) {
-                              editImageInputRef.current.value = '';
-                            }
-                          }}
+                          onClick={() => removeNewImage(idx)}
                           className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
                         >
                           <X size={12} />
                         </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-300">
-                      <ImageIcon size={24} className="text-gray-400" />
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => editImageInputRef.current?.click()}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Upload size={16} />
-                    {editImagePreview ? 'Change Image' : 'Upload New Image'}
-                  </button>
-                </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-green-500 text-white text-xs text-center py-0.5">
+                          New
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => editImageInputRef.current?.click()}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={16} />
+                  {editImagePreviews.length > 0 ? 'Add More Images' : 'Upload Images'}
+                </button>
               </div>
 
               {/* Place Name */}
@@ -742,21 +1005,51 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                   onClick={async () => {
                     const timeCategory = selectedRecommendation.timeCategory || 'visit';
                     
-                    let finalImageUrl = editedRecommendation.imageUrl;
-                    
-                    // Upload new image if selected
-                    if (editImageFile) {
+                    // Upload all new images
+                    const newUploadedUrls: string[] = [];
+                    if (editImageFiles.length > 0) {
                       setUploadingEditImage(true);
-                      const uploadedUrl = await uploadImage(editImageFile);
-                      setUploadingEditImage(false);
-                      if (uploadedUrl) {
-                        finalImageUrl = uploadedUrl;
+                      for (const file of editImageFiles) {
+                        const uploadedUrl = await uploadImage(file);
+                        if (uploadedUrl) {
+                          newUploadedUrls.push(uploadedUrl);
+                        }
                       }
+                      setUploadingEditImage(false);
                     }
                     
-                    const updatedImages = finalImageUrl 
-                      ? [finalImageUrl, ...selectedRecommendation.images.slice(1)]
-                      : selectedRecommendation.images;
+                    // Remove deleted images and add new ones
+                    const remainingImages = selectedRecommendation.images.filter(
+                      img => !editImagesToDelete.includes(img)
+                    );
+                    const updatedImages = [...newUploadedUrls, ...remainingImages];
+                    
+                    // Update the recommendation in the database if it has an ID
+                    if (selectedRecommendation.id) {
+                      await updateRecommendation(selectedRecommendation.id, {
+                        name: editedRecommendation.name,
+                        description: editedRecommendation.description,
+                        price: editedRecommendation.price,
+                        location: editedRecommendation.location,
+                        images: updatedImages,
+                      });
+                      
+                      // Update local state to reflect changes
+                      setRecommendations(prev => prev.map(rec => 
+                        rec.id === selectedRecommendation.id 
+                          ? { 
+                              ...rec, 
+                              name: editedRecommendation.name,
+                              description: editedRecommendation.description,
+                              price: editedRecommendation.price,
+                              location: editedRecommendation.location,
+                              images: updatedImages,
+                            }
+                          : rec
+                      ));
+                    }
+                    
+                    // Add to day
                     await addPlaceToDay(trip.id, day.id, { 
                       ...selectedRecommendation, 
                       name: editedRecommendation.name,
@@ -767,8 +1060,11 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                       timeCategory,
                       time: editedRecommendation.time || undefined 
                     });
-                    setEditImageFile(null);
-                    setEditImagePreview(null);
+                    
+                    // Reset state
+                    setEditImageFiles([]);
+                    setEditImagePreviews([]);
+                    setEditImagesToDelete([]);
                     setSelectedRecommendation(null);
                     onClose();
                   }}
@@ -780,11 +1076,225 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                 </button>
                 <button
                   onClick={() => {
-                    setEditImageFile(null);
-                    setEditImagePreview(null);
+                    setEditImageFiles([]);
+                    setEditImagePreviews([]);
+                    setEditImagesToDelete([]);
                     setSelectedRecommendation(null);
                   }}
                   disabled={uploadingEditImage}
+                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Recommendation Modal */}
+      {showAddRecommendation && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowAddRecommendation(false)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex-shrink-0 bg-white p-4 border-b border-gray-100 flex items-center justify-between rounded-t-3xl">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Add New Recommendation</h3>
+                <p className="text-sm text-gray-500">Create a new place recommendation</p>
+              </div>
+              <button
+                onClick={() => setShowAddRecommendation(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 pb-8 safe-bottom space-y-4">
+              {/* Place Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., The Pearl Qatar"
+                  value={newRecommendation.name}
+                  onChange={(e) => setNewRecommendation({ ...newRecommendation, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  placeholder="Describe this place..."
+                  value={newRecommendation.description}
+                  onChange={(e) => setNewRecommendation({ ...newRecommendation, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm h-20 resize-none" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <MapPin size={14} className="inline mr-1" />
+                  Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Doha, Qatar"
+                  value={newRecommendation.location}
+                  onChange={(e) => setNewRecommendation({ ...newRecommendation, location: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (OMR)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    value={newRecommendation.price || ''}
+                    onChange={(e) => setNewRecommendation({ ...newRecommendation, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                    style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">OMR</span>
+                </div>
+              </div>
+
+              {/* Time Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Time Category</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {timeCategoryOptions.map((tc) => (
+                    <button
+                      key={tc.value}
+                      type="button"
+                      onClick={() => setNewRecommendation({ ...newRecommendation, timeCategory: tc.value })}
+                      className={`p-2 rounded-xl border text-center transition-all ${
+                        newRecommendation.timeCategory === tc.value
+                          ? 'text-white border-transparent'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                      }`}
+                      style={newRecommendation.timeCategory === tc.value ? { backgroundColor: '#5A1B1C' } : {}}
+                    >
+                      <span className="text-lg block mb-0.5">{tc.icon}</span>
+                      <span className="text-xs font-medium">{tc.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Place Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setNewRecommendation({ ...newRecommendation, category: cat })}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        newRecommendation.category === cat
+                          ? 'text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      style={newRecommendation.category === cat ? { backgroundColor: '#5A1B1C' } : {}}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Images */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Images {newRecImagePreviews.length > 0 && `(${newRecImagePreviews.length} selected)`}
+                </label>
+                <input
+                  type="file"
+                  ref={newRecImageInputRef}
+                  accept="image/*"
+                  multiple
+                  onChange={handleNewRecImageSelect}
+                  className="hidden"
+                />
+                
+                {/* Image previews */}
+                {newRecImagePreviews.length > 0 && (
+                  <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2 mb-2">
+                    {newRecImagePreviews.map((preview, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 border-2 border-green-500"
+                      >
+                        <img
+                          src={preview}
+                          alt={`New image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeNewRecImage(idx)}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => newRecImageInputRef.current?.click()}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={16} />
+                  {newRecImagePreviews.length > 0 ? 'Add More Images' : 'Upload Images'}
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleAddNewRecommendation}
+                  disabled={savingNewRecommendation || !newRecommendation.name.trim()}
+                  className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm disabled:opacity-50" 
+                  style={{ backgroundColor: '#5A1B1C' }}
+                >
+                  {savingNewRecommendation ? 'Saving...' : 'Create Recommendation'}
+                </button>
+                <button
+                  onClick={() => {
+                    setNewRecommendation({
+                      name: '',
+                      description: '',
+                      location: '',
+                      price: 0,
+                      timeCategory: 'visit',
+                      category: 'Attractions',
+                    });
+                    setNewRecImageFiles([]);
+                    setNewRecImagePreviews([]);
+                    setShowAddRecommendation(false);
+                  }}
+                  disabled={savingNewRecommendation}
                   className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
                 >
                   Cancel

@@ -112,11 +112,19 @@ export async function getTrip(id: string): Promise<Trip | undefined> {
     }
   }
 
-  // 4. Assemble
+  // 4. Assemble and sort places by time (morning first)
   const days: Day[] = daysData.map(dayRow => {
     const dayPlaces = placesData
       .filter(p => p.day_id === dayRow.id)
-      .map(mapPlace);
+      .map(mapPlace)
+      .sort((a, b) => {
+        // Sort by time - places with time come first, sorted chronologically
+        // Places without time go to the end
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+      });
     return mapDay(dayRow, dayPlaces);
   });
 
@@ -392,6 +400,7 @@ export async function reorderPlaces(
 
 function mapRecommendation(row: any): RecommendedPlace {
   return {
+    id: row.id,
     name: row.name,
     type: row.type,
     category: row.category || [],
@@ -422,6 +431,83 @@ export async function fetchRecommendations(): Promise<RecommendedPlace[]> {
   }
 
   return data.map(mapRecommendation);
+}
+
+export async function updateRecommendation(
+  id: string,
+  updates: {
+    name?: string;
+    description?: string;
+    price?: number;
+    location?: string;
+    images?: string[];
+  }
+): Promise<void> {
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.price !== undefined) dbUpdates.price = updates.price;
+  if (updates.location !== undefined) dbUpdates.location = updates.location;
+  if (updates.images !== undefined) dbUpdates.images = updates.images;
+
+  const { error } = await supabase
+    .from('recommendations')
+    .update(dbUpdates)
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating recommendation:', error);
+  }
+}
+
+export async function deleteRecommendations(ids: string[]): Promise<void> {
+  const { error } = await supabase
+    .from('recommendations')
+    .delete()
+    .in('id', ids);
+
+  if (error) {
+    console.error('Error deleting recommendations:', error);
+  }
+}
+
+export async function createRecommendation(
+  recommendation: {
+    name: string;
+    type: string;
+    category: string[];
+    description: string;
+    images: string[];
+    price: number;
+    currency: string;
+    location: string;
+    timeCategory: string;
+    featured?: boolean;
+  }
+): Promise<RecommendedPlace | null> {
+  const { data, error } = await supabase
+    .from('recommendations')
+    .insert({
+      name: recommendation.name,
+      type: recommendation.type,
+      category: recommendation.category,
+      description: recommendation.description,
+      images: recommendation.images,
+      price: recommendation.price,
+      currency: recommendation.currency,
+      location: recommendation.location,
+      time_category: recommendation.timeCategory,
+      featured: recommendation.featured || false,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating recommendation:', error);
+    return null;
+  }
+
+  return mapRecommendation(data);
 }
 
 // --- Image Upload ---

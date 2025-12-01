@@ -379,19 +379,48 @@ function TimelinePlace({ place, number, onDelete, onApprove, currentUserId }: Ti
           )}
         </div>
 
-        {/* Image Grid */}
+        {/* Image Gallery - Show all images */}
         {place.images.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            {place.images.slice(0, 2).map((img, idx) => (
-              <div key={idx} className="relative aspect-[4/3] rounded-lg overflow-hidden bg-gray-200">
+          <div className="mb-4">
+            {place.images.length === 1 ? (
+              <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gray-200">
                 <img
-                  src={img}
-                  alt={`${place.name} ${idx + 1}`}
+                  src={place.images[0]}
+                  alt={place.name}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
               </div>
-            ))}
+            ) : place.images.length === 2 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {place.images.map((img, idx) => (
+                  <div key={idx} className="relative aspect-[4/3] rounded-lg overflow-hidden bg-gray-200">
+                    <img
+                      src={img}
+                      alt={`${place.name} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2">
+                {place.images.map((img, idx) => (
+                  <div key={idx} className="w-40 h-28 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    <img
+                      src={img}
+                      alt={`${place.name} ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {place.images.length > 2 && (
+              <p className="text-xs text-gray-400 mt-1 text-center">{place.images.length} photos</p>
+            )}
           </div>
         )}
 

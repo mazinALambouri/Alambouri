@@ -44,6 +44,7 @@ export interface Trip {
 }
 
 export interface RecommendedPlace extends Omit<Place, 'id'> {
+  id?: string; // Optional ID for updating recommendations
   dateRange?: string;
   featured?: boolean;
 }
