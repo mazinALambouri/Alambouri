@@ -152,7 +152,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white sticky top-0 z-30 border-b border-gray-200">
+      <div className="bg-white sticky top-0 z-30 border-b border-gray-200 pt-safe">
         <div className="px-4 py-3 flex items-center gap-3">
           <button 
             onClick={onClose} 
@@ -496,7 +496,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       </div>
 
       {/* Bottom Tip */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur border-t border-gray-200">
+      <div className="fixed bottom-0 left-0 right-0 p-3 safe-bottom bg-white/95 backdrop-blur border-t border-gray-200">
         <p className="text-center text-xs text-gray-500">
           Tap <span className="font-semibold" style={{ color: '#5A1B1C' }}>+ Add</span> to add a place to your itinerary
         </p>
@@ -523,7 +523,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
               </button>
             </div>
 
-            <div className="p-4 space-y-4">
+            <div className="p-4 pb-8 safe-bottom space-y-4">
               {/* Image Preview & Edit */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Image</label>

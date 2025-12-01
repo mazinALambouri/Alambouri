@@ -20,14 +20,14 @@ interface ChecklistItem {
   assignedTo?: string;
 }
 
-// Item type config
+// Item type config - using brand colors only (dark red, black, white)
 const itemTypeConfig = {
-  essentials: { label: 'Essentials', icon: Package, color: '#5A1B1C' },
-  food: { label: 'Food & Drinks', icon: Utensils, color: '#16a34a' },
-  car: { label: 'Car', icon: Car, color: '#2563eb' },
-  health: { label: 'Health', icon: Heart, color: '#dc2626' },
-  electronics: { label: 'Electronics', icon: Zap, color: '#9333ea' },
-  personal: { label: 'Personal', icon: User, color: '#f59e0b' },
+  essentials: { label: 'Essentials', icon: Package },
+  food: { label: 'Food & Drinks', icon: Utensils },
+  car: { label: 'Car', icon: Car },
+  health: { label: 'Health', icon: Heart },
+  electronics: { label: 'Electronics', icon: Zap },
+  personal: { label: 'Personal', icon: User },
 };
 
 // Default road trip essentials
@@ -144,7 +144,7 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white sticky top-0 z-30 border-b border-gray-200">
+        <div className="bg-white sticky top-0 z-30 border-b border-gray-200 pt-safe">
           <div className="px-4 py-3 flex items-center gap-3">
             <button 
               onClick={() => setShowChecklistPage(false)} 
@@ -182,13 +182,13 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
               return (
                 <div
                   key={key}
-                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white"
-                  style={{ backgroundColor: config.color }}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border"
+                  style={{ backgroundColor: '#5A1B1C15', borderColor: '#5A1B1C40', color: '#5A1B1C' }}
                 >
                   <Icon size={12} />
                   {config.label}
                   {count > 0 && (
-                    <span className="bg-white/30 px-1.5 py-0.5 rounded-full text-[10px]">{count}</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] text-white" style={{ backgroundColor: '#5A1B1C' }}>{count}</span>
                   )}
                 </div>
               );
@@ -290,15 +290,15 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {/* Type Badge */}
                       <span 
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: typeConfig.color }}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
+                        style={{ backgroundColor: '#5A1B1C15', borderColor: '#5A1B1C40', color: '#5A1B1C' }}
                       >
                         <Icon size={10} />
                         {typeConfig.label}
                       </span>
                       {/* Assigned Badge */}
                       {item.assignedTo && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
                           <User size={10} />
                           {item.assignedTo}
                         </span>
@@ -309,7 +309,8 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
                   {/* Delete */}
                   <button
                     onClick={() => deleteItem(item.id)}
-                    className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="flex-shrink-0 p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                    style={{ '--hover-color': '#5A1B1C' } as any}
                   >
                     <X size={18} />
                   </button>
@@ -324,8 +325,8 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
 
   return (
     <div className="min-h-screen bg-white pb-20">
-      {/* Hero Section */}
-      <div className="relative h-[400px]">
+      {/* Hero Section - Responsive height */}
+      <div className="relative h-[280px] sm:h-[350px] md:h-[400px]">
         <img
           src="https://images.unsplash.com/photo-1578895101408-1a36b834405b?w=1200&auto=format&fit=crop"
           alt={trip.name}
@@ -334,7 +335,7 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
         {/* Checklist Icon - Top Right */}
         <button
           onClick={() => setShowChecklistPage(true)}
-          className="absolute top-4 right-4 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+          className="absolute top-safe right-4 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
         >
           <ClipboardList size={22} style={{ color: '#5A1B1C' }} />
           {/* Badge showing unchecked count */}
@@ -412,7 +413,7 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
       </div>
 
       {/* View Toggle & Day Tabs */}
-      <div className="border-b border-gray-200 bg-white sticky top-0 z-20">
+      <div className="border-b border-gray-200 bg-white sticky top-0 z-20 safe-top">
         <div className="flex items-center justify-between px-6 py-2 border-b border-gray-100">
           <div className="flex gap-2">
             <button
@@ -512,7 +513,7 @@ function TimelineOverview({ trip }: TimelineOverviewProps) {
       {trip.days.map((day, dayIndex) => (
         <div key={day.id} className="relative">
           {/* Day Header */}
-          <div className="flex items-center gap-3 mb-4 sticky top-16 bg-white py-2 z-10">
+          <div className="flex items-center gap-3 mb-4 sticky top-20 safe-top bg-white py-2 z-10">
             <div className="w-12 h-12 rounded-full text-white flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: '#5A1B1C' }}>
               {day.dayNumber}
             </div>

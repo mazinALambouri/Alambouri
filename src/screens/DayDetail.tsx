@@ -24,15 +24,18 @@ interface DayDetailProps {
   onDeleteDay: (dayId: string) => void;
 }
 
+// Brand color style for all categories
+const brandStyle = { bgColor: 'bg-[#5A1B1C]/10', textColor: 'text-[#5A1B1C]', borderColor: 'border-[#5A1B1C]/30' };
+
 const timeCategoryConfig: Record<TimeCategory, { label: string; icon: any; bgColor: string; textColor: string; borderColor: string }> = {
-  breakfast: { label: 'Breakfast', icon: Coffee, bgColor: 'bg-orange-50', textColor: 'text-orange-700', borderColor: 'border-orange-200' },
-  visit: { label: 'Visit', icon: MapPin, bgColor: 'bg-blue-50', textColor: 'text-blue-700', borderColor: 'border-blue-200' },
-  prayer: { label: 'Prayer', icon: Sun, bgColor: 'bg-purple-50', textColor: 'text-purple-700', borderColor: 'border-purple-200' },
-  lunch: { label: 'Lunch', icon: UtensilsCrossed, bgColor: 'bg-green-50', textColor: 'text-green-700', borderColor: 'border-green-200' },
-  activity: { label: 'Activity', icon: Sun, bgColor: 'bg-yellow-50', textColor: 'text-yellow-700', borderColor: 'border-yellow-200' },
-  dinner: { label: 'Dinner', icon: Moon, bgColor: 'bg-indigo-50', textColor: 'text-indigo-700', borderColor: 'border-indigo-200' },
-  hotel: { label: 'Hotel', icon: Hotel, bgColor: 'bg-gray-50', textColor: 'text-gray-700', borderColor: 'border-gray-200' },
-  gas: { label: 'Gas Stop', icon: Fuel, bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' },
+  breakfast: { label: 'Breakfast', icon: Coffee, ...brandStyle },
+  visit: { label: 'Visit', icon: MapPin, ...brandStyle },
+  prayer: { label: 'Prayer', icon: Sun, ...brandStyle },
+  lunch: { label: 'Lunch', icon: UtensilsCrossed, ...brandStyle },
+  activity: { label: 'Activity', icon: Sun, ...brandStyle },
+  dinner: { label: 'Dinner', icon: Moon, ...brandStyle },
+  hotel: { label: 'Hotel', icon: Hotel, ...brandStyle },
+  gas: { label: 'Gas Stop', icon: Fuel, ...brandStyle },
 };
 
 // For demo purposes - in production this would come from auth
@@ -135,7 +138,8 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
             </button>
             <button
               onClick={() => setShowGasModal(true)}
-              className="flex items-center justify-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-full font-medium transition-colors hover:bg-emerald-600"
+              className="flex items-center justify-center gap-2 px-5 py-3 text-white rounded-full font-medium transition-colors"
+              style={{ backgroundColor: '#5A1B1C' }}
             >
               <Fuel size={18} />
               Gas
@@ -180,13 +184,13 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
       {showGasModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowGasModal(false)}>
           <div 
-            className="bg-white w-full max-w-lg rounded-t-3xl p-6 animate-slide-up"
+            className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-8 safe-bottom animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Fuel size={24} className="text-emerald-600" />
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#5A1B1C20' }}>
+                <Fuel size={24} style={{ color: '#5A1B1C' }} />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Add Gas Stop</h3>
@@ -217,15 +221,16 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                   min="0"
                   value={gasStopCost || ''}
                   onChange={(e) => setGasStopCost(parseFloat(e.target.value) || 0)}
-                  className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                  className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">OMR</span>
               </div>
             </div>
 
             {/* Time Input */}
-            <div className="p-4 rounded-xl border mb-6 bg-emerald-50 border-emerald-200">
-              <label className="block text-sm font-medium text-emerald-700 mb-2">
+            <div className="p-4 rounded-xl border mb-6" style={{ backgroundColor: '#5A1B1C10', borderColor: '#5A1B1C30' }}>
+              <label className="block text-sm font-medium mb-2" style={{ color: '#5A1B1C' }}>
                 <Clock size={14} className="inline mr-1" />
                 Scheduled Time (Optional)
               </label>
@@ -233,7 +238,8 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                 type="time"
                 value={gasStopTime}
                 onChange={(e) => setGasStopTime(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg font-semibold text-center bg-white border border-emerald-200"
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 text-lg font-semibold text-center bg-white border"
+                style={{ borderColor: '#5A1B1C30', '--tw-ring-color': '#5A1B1C' } as any}
               />
             </div>
 
@@ -241,7 +247,8 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
             <div className="flex gap-3">
               <button
                 onClick={handleAddGasStop}
-                className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-semibold transition-colors hover:bg-emerald-600 flex items-center justify-center gap-2"
+                className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#5A1B1C' }}
               >
                 <Fuel size={18} />
                 Add Gas Stop
