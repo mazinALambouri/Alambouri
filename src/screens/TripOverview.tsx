@@ -4,12 +4,55 @@ import { FloatingButton } from '../components/FloatingButton';
 import { addDay, deleteDay } from '../lib/db';
 import { calculateTripStats } from '../lib/utils';
 import { DayDetail } from './DayDetail';
-import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass } from 'lucide-react';
+import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass, CheckSquare, Square, Plus, X, Package, Utensils, Car, Heart, Zap, User, ArrowLeft, ClipboardList } from 'lucide-react';
 
 interface TripOverviewProps {
   trip: Trip;
   onTripUpdate: () => void;
 }
+
+// Checklist item type
+interface ChecklistItem {
+  id: string;
+  name: string;
+  checked: boolean;
+  type: 'essentials' | 'food' | 'car' | 'health' | 'electronics' | 'personal';
+  assignedTo?: string;
+}
+
+// Item type config
+const itemTypeConfig = {
+  essentials: { label: 'Essentials', icon: Package, color: '#5A1B1C' },
+  food: { label: 'Food & Drinks', icon: Utensils, color: '#16a34a' },
+  car: { label: 'Car', icon: Car, color: '#2563eb' },
+  health: { label: 'Health', icon: Heart, color: '#dc2626' },
+  electronics: { label: 'Electronics', icon: Zap, color: '#9333ea' },
+  personal: { label: 'Personal', icon: User, color: '#f59e0b' },
+};
+
+// Default road trip essentials
+const defaultChecklist: ChecklistItem[] = [
+  { id: '1', name: 'Driving License & Car Registration', checked: false, type: 'essentials' },
+  { id: '2', name: 'ID/Passport', checked: false, type: 'essentials' },
+  { id: '3', name: 'Cash & Cards', checked: false, type: 'essentials' },
+  { id: '4', name: 'Phone Charger & Power Bank', checked: false, type: 'electronics' },
+  { id: '5', name: 'First Aid Kit', checked: false, type: 'health' },
+  { id: '6', name: 'Water Bottles (6L minimum)', checked: false, type: 'food' },
+  { id: '7', name: 'Snacks & Food', checked: false, type: 'food' },
+  { id: '8', name: 'Cooler Box with Ice', checked: false, type: 'food' },
+  { id: '9', name: 'Spare Tire & Jack', checked: false, type: 'car' },
+  { id: '10', name: 'Jumper Cables', checked: false, type: 'car' },
+  { id: '11', name: 'Flashlight & Batteries', checked: false, type: 'essentials' },
+  { id: '12', name: 'Sunglasses & Sunscreen', checked: false, type: 'personal' },
+  { id: '13', name: 'Medications', checked: false, type: 'health' },
+  { id: '14', name: 'Paper Maps (backup)', checked: false, type: 'essentials' },
+  { id: '15', name: 'Car Phone Mount', checked: false, type: 'electronics' },
+  { id: '16', name: 'Blankets & Pillows', checked: false, type: 'personal' },
+  { id: '17', name: 'Tissues & Wet Wipes', checked: false, type: 'personal' },
+  { id: '18', name: 'Trash Bags', checked: false, type: 'essentials' },
+  { id: '19', name: 'Umbrella / Rain Gear', checked: false, type: 'personal' },
+  { id: '20', name: 'Tire Pressure Gauge', checked: false, type: 'car' },
+];
 
 export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(
@@ -17,6 +60,52 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
   );
   const [viewMode, setViewMode] = useState<'detail' | 'timeline'>('detail');
   const stats = calculateTripStats(trip);
+  
+  // Checklist state
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(() => {
+    const saved = localStorage.getItem(`checklist-${trip.id}`);
+    return saved ? JSON.parse(saved) : defaultChecklist;
+  });
+  const [showChecklistPage, setShowChecklistPage] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [newItem, setNewItem] = useState({ name: '', type: 'essentials' as ChecklistItem['type'], assignedTo: '' });
+
+  // Save checklist to localStorage
+  useEffect(() => {
+    localStorage.setItem(`checklist-${trip.id}`, JSON.stringify(checklist));
+  }, [checklist, trip.id]);
+
+  // Sort checklist - unchecked first
+  const sortedChecklist = [...checklist].sort((a, b) => {
+    if (a.checked === b.checked) return 0;
+    return a.checked ? 1 : -1;
+  });
+
+  const toggleItem = (id: string) => {
+    setChecklist(prev => prev.map(item => 
+      item.id === id ? { ...item, checked: !item.checked } : item
+    ));
+  };
+
+  const addItem = () => {
+    if (!newItem.name.trim()) return;
+    const item: ChecklistItem = {
+      id: Date.now().toString(),
+      name: newItem.name,
+      type: newItem.type,
+      checked: false,
+      assignedTo: newItem.assignedTo || undefined,
+    };
+    setChecklist(prev => [...prev, item]);
+    setNewItem({ name: '', type: 'essentials', assignedTo: '' });
+    setShowAddItem(false);
+  };
+
+  const deleteItem = (id: string) => {
+    setChecklist(prev => prev.filter(item => item.id !== id));
+  };
+
+  const checkedCount = checklist.filter(i => i.checked).length;
 
   const selectedDay = trip.days.find(d => d.id === selectedDayId);
 
@@ -50,6 +139,189 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
     }
   }, [trip.days, selectedDayId]);
 
+  // Show checklist page
+  if (showChecklistPage) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white sticky top-0 z-30 border-b border-gray-200">
+          <div className="px-4 py-3 flex items-center gap-3">
+            <button 
+              onClick={() => setShowChecklistPage(false)} 
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-gray-900">Road Trip Checklist</h1>
+              <p className="text-xs text-gray-500">{checkedCount}/{checklist.length} items packed</p>
+            </div>
+            {/* Progress Circle */}
+            <div className="relative w-12 h-12">
+              <svg className="w-12 h-12 -rotate-90">
+                <circle cx="24" cy="24" r="20" fill="none" stroke="#e5e7eb" strokeWidth="4" />
+                <circle 
+                  cx="24" cy="24" r="20" fill="none" stroke="#5A1B1C" strokeWidth="4"
+                  strokeDasharray={`${(checkedCount / checklist.length) * 125.6} 125.6`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xs font-bold" style={{ color: '#5A1B1C' }}>
+                {Math.round((checkedCount / checklist.length) * 100)}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Filter */}
+        <div className="px-4 py-3 bg-white border-b border-gray-100">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            {Object.entries(itemTypeConfig).map(([key, config]) => {
+              const Icon = config.icon;
+              const count = checklist.filter(i => i.type === key && !i.checked).length;
+              return (
+                <div
+                  key={key}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: config.color }}
+                >
+                  <Icon size={12} />
+                  {config.label}
+                  {count > 0 && (
+                    <span className="bg-white/30 px-1.5 py-0.5 rounded-full text-[10px]">{count}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Add Item Button */}
+          {!showAddItem ? (
+            <button
+              onClick={() => setShowAddItem(true)}
+              className="w-full mb-4 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-gray-400 hover:bg-white transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={18} />
+              Add New Item
+            </button>
+          ) : (
+            <div className="mb-4 p-4 bg-white rounded-xl border border-gray-200 space-y-3">
+              <input
+                type="text"
+                placeholder="Item name..."
+                value={newItem.name}
+                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2" 
+                style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <select
+                  value={newItem.type}
+                  onChange={(e) => setNewItem({ ...newItem, type: e.target.value as ChecklistItem['type'] })}
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 bg-white"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                >
+                  {Object.entries(itemTypeConfig).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Assigned to..."
+                  value={newItem.assignedTo}
+                  onChange={(e) => setNewItem({ ...newItem, assignedTo: e.target.value })}
+                  className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={addItem}
+                  className="flex-1 py-2.5 text-white rounded-xl font-medium" 
+                  style={{ backgroundColor: '#5A1B1C' }}
+                >
+                  Add Item
+                </button>
+                <button
+                  onClick={() => setShowAddItem(false)}
+                  className="px-6 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Checklist Items */}
+          <div className="space-y-2">
+            {sortedChecklist.map((item) => {
+              const typeConfig = itemTypeConfig[item.type];
+              const Icon = typeConfig.icon;
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                    item.checked 
+                      ? 'bg-gray-100 border-gray-200' 
+                      : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => toggleItem(item.id)}
+                    className="flex-shrink-0"
+                  >
+                    {item.checked ? (
+                      <CheckSquare size={24} style={{ color: '#5A1B1C' }} />
+                    ) : (
+                      <Square size={24} className="text-gray-400" />
+                    )}
+                  </button>
+
+                  {/* Item Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium ${item.checked ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                      {item.name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {/* Type Badge */}
+                      <span 
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: typeConfig.color }}
+                      >
+                        <Icon size={10} />
+                        {typeConfig.label}
+                      </span>
+                      {/* Assigned Badge */}
+                      {item.assignedTo && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          <User size={10} />
+                          {item.assignedTo}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white pb-20">
       {/* Hero Section */}
@@ -59,6 +331,22 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
           alt={trip.name}
           className="w-full h-full object-cover"
         />
+        {/* Checklist Icon - Top Right */}
+        <button
+          onClick={() => setShowChecklistPage(true)}
+          className="absolute top-4 right-4 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
+        >
+          <ClipboardList size={22} style={{ color: '#5A1B1C' }} />
+          {/* Badge showing unchecked count */}
+          {checklist.length - checkedCount > 0 && (
+            <span 
+              className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
+              style={{ backgroundColor: '#5A1B1C' }}
+            >
+              {checklist.length - checkedCount}
+            </span>
+          )}
+        </button>
         {/* Trip Stats Overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
           <h1 className="text-3xl font-bold text-white mb-2">{trip.name}</h1>

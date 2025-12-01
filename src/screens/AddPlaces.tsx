@@ -31,6 +31,7 @@ const timeCategories: { value: TimeCategory | 'All'; label: string; icon: string
   { value: 'activity', label: 'Activity', icon: '⚡' },
   { value: 'dinner', label: 'Dinner', icon: '🌙' },
   { value: 'hotel', label: 'Hotel', icon: '🏨' },
+  { value: 'gas', label: 'Gas Stop', icon: '⛽' },
 ];
 
 const timeCategoryOptions: { value: TimeCategory; label: string; icon: string }[] = [
@@ -41,6 +42,7 @@ const timeCategoryOptions: { value: TimeCategory; label: string; icon: string }[
   { value: 'activity', label: 'Activity', icon: '⚡' },
   { value: 'dinner', label: 'Dinner', icon: '🌙' },
   { value: 'hotel', label: 'Hotel', icon: '🏨' },
+  { value: 'gas', label: 'Gas', icon: '⛽' },
 ];
 
 export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
@@ -50,6 +52,24 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [recommendations, setRecommendations] = useState<RecommendedPlace[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(true);
+  
+  // Edit modal state for recommended places
+  const [selectedRecommendation, setSelectedRecommendation] = useState<RecommendedPlace | null>(null);
+  const [editedRecommendation, setEditedRecommendation] = useState<{
+    name: string;
+    description: string;
+    price: number;
+    time: string;
+    imageUrl: string;
+    location: string;
+  }>({
+    name: '',
+    description: '',
+    price: 0,
+    time: '',
+    imageUrl: '',
+    location: '',
+  });
   
   // Fetch recommendations from Supabase
   useEffect(() => {
@@ -433,10 +453,16 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                         </p>
                       </div>
                       <button
-                        onClick={async () => {
-                          const timeCategory = place.timeCategory || 'visit';
-                          await addPlaceToDay(trip.id, day.id, { ...place, timeCategory });
-                          onClose();
+                        onClick={() => {
+                          setSelectedRecommendation(place);
+                          setEditedRecommendation({
+                            name: place.name,
+                            description: place.description,
+                            price: place.price,
+                            time: '',
+                            imageUrl: place.images[0] || '',
+                            location: place.location || '',
+                          });
                         }}
                         className="flex-shrink-0 px-3 py-1.5 text-white rounded-lg text-xs font-semibold transition-colors" style={{ backgroundColor: '#5A1B1C' }}
                       >
@@ -475,6 +501,164 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
           Tap <span className="font-semibold" style={{ color: '#5A1B1C' }}>+ Add</span> to add a place to your itinerary
         </p>
       </div>
+
+      {/* Edit & Add Modal for Recommendations */}
+      {selectedRecommendation && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setSelectedRecommendation(null)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white p-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Edit & Add Place</h3>
+                <p className="text-sm text-gray-500">Customize before adding</p>
+              </div>
+              <button
+                onClick={() => setSelectedRecommendation(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Image Preview & Edit */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Image</label>
+                <div className="flex gap-3 items-start">
+                  {editedRecommendation.imageUrl && (
+                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                      <img
+                        src={editedRecommendation.imageUrl}
+                        alt={editedRecommendation.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&fit=crop';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Image URL..."
+                    value={editedRecommendation.imageUrl}
+                    onChange={(e) => setEditedRecommendation({ ...editedRecommendation, imageUrl: e.target.value })}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                    style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                  />
+                </div>
+              </div>
+
+              {/* Place Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Place Name</label>
+                <input
+                  type="text"
+                  value={editedRecommendation.name}
+                  onChange={(e) => setEditedRecommendation({ ...editedRecommendation, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  value={editedRecommendation.description}
+                  onChange={(e) => setEditedRecommendation({ ...editedRecommendation, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm h-20 resize-none" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <MapPin size={14} className="inline mr-1" />
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={editedRecommendation.location}
+                  onChange={(e) => setEditedRecommendation({ ...editedRecommendation, location: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (OMR)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editedRecommendation.price || ''}
+                    onChange={(e) => setEditedRecommendation({ ...editedRecommendation, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                    style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">OMR</span>
+                </div>
+              </div>
+
+              {/* Time Input */}
+              <div className="p-4 rounded-xl border" style={{ backgroundColor: '#5A1B1C10', borderColor: '#5A1B1C30' }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#5A1B1C' }}>
+                  <Clock size={14} className="inline mr-1" />
+                  Scheduled Time
+                </label>
+                <input
+                  type="time"
+                  value={editedRecommendation.time}
+                  onChange={(e) => setEditedRecommendation({ ...editedRecommendation, time: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 text-lg font-semibold text-center bg-white border" 
+                  style={{ borderColor: '#5A1B1C50', '--tw-ring-color': '#5A1B1C' } as any}
+                />
+                <p className="text-xs mt-1.5 text-center" style={{ color: '#5A1B1C' }}>Set a specific time for this activity (optional)</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={async () => {
+                    const timeCategory = selectedRecommendation.timeCategory || 'visit';
+                    const updatedImages = editedRecommendation.imageUrl 
+                      ? [editedRecommendation.imageUrl, ...selectedRecommendation.images.slice(1)]
+                      : selectedRecommendation.images;
+                    await addPlaceToDay(trip.id, day.id, { 
+                      ...selectedRecommendation, 
+                      name: editedRecommendation.name,
+                      description: editedRecommendation.description,
+                      price: editedRecommendation.price,
+                      location: editedRecommendation.location,
+                      images: updatedImages,
+                      timeCategory,
+                      time: editedRecommendation.time || undefined 
+                    });
+                    setSelectedRecommendation(null);
+                    onClose();
+                  }}
+                  className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm" 
+                  style={{ backgroundColor: '#5A1B1C' }}
+                >
+                  Add to Day {day.dayNumber}
+                </button>
+                <button
+                  onClick={() => setSelectedRecommendation(null)}
+                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

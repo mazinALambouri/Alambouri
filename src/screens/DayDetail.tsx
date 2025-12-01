@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Trip, Day, Place, TimeCategory } from '../types';
+import { Trip, Day, Place, TimeCategory, PlaceCategory } from '../types';
 import { deletePlace, approvePlace, unapprovePlace } from '../lib/db';
 import { AddPlaces } from './AddPlaces.tsx';
-import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle } from 'lucide-react';
+import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle, Fuel } from 'lucide-react';
+import { addPlaceToDay } from '../lib/db';
 
 // Format time to HH:mm format
 const formatTime = (time: string): string => {
@@ -31,6 +32,7 @@ const timeCategoryConfig: Record<TimeCategory, { label: string; icon: any; bgCol
   activity: { label: 'Activity', icon: Sun, bgColor: 'bg-yellow-50', textColor: 'text-yellow-700', borderColor: 'border-yellow-200' },
   dinner: { label: 'Dinner', icon: Moon, bgColor: 'bg-indigo-50', textColor: 'text-indigo-700', borderColor: 'border-indigo-200' },
   hotel: { label: 'Hotel', icon: Hotel, bgColor: 'bg-gray-50', textColor: 'text-gray-700', borderColor: 'border-gray-200' },
+  gas: { label: 'Gas Stop', icon: Fuel, bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' },
 };
 
 // For demo purposes - in production this would come from auth
@@ -38,6 +40,36 @@ const CURRENT_USER_ID = 'user-1';
 
 export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) {
   const [showAddPlaces, setShowAddPlaces] = useState(false);
+  const [showGasModal, setShowGasModal] = useState(false);
+  const [gasStopName, setGasStopName] = useState('');
+  const [gasStopTime, setGasStopTime] = useState('');
+  const [gasStopCost, setGasStopCost] = useState<number>(0);
+
+  const handleAddGasStop = async () => {
+    const gasPlace = {
+      name: gasStopName || 'Gas Station',
+      type: 'activity' as const,
+      category: ['Activities'] as PlaceCategory[],
+      description: 'Fuel stop',
+      images: [],
+      timeToReach: 5,
+      price: gasStopCost,
+      currency: 'OMR',
+      location: '',
+      distanceFromUser: 0,
+      timeCategory: 'gas' as const,
+      time: gasStopTime || undefined,
+      needsApproval: false,
+      approvedBy: [],
+      totalTravelers: 6,
+    };
+    await addPlaceToDay(trip.id, day.id, gasPlace);
+    setShowGasModal(false);
+    setGasStopName('');
+    setGasStopTime('');
+    setGasStopCost(0);
+    onUpdate();
+  };
 
   const handleDeletePlace = async (placeId: string) => {
     if (window.confirm('Remove this place from your day?')) {
@@ -93,13 +125,22 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
             </div>
           ))}
 
-          {/* Add More Button */}
-          <button
-            onClick={() => setShowAddPlaces(true)}
-            className="w-full py-3 text-white rounded-full font-medium transition-colors mt-4" style={{ backgroundColor: '#5A1B1C' }}
-          >
-            + Add More Places
-          </button>
+          {/* Quick Actions */}
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => setShowAddPlaces(true)}
+              className="flex-1 py-3 text-white rounded-full font-medium transition-colors" style={{ backgroundColor: '#5A1B1C' }}
+            >
+              + Add Place
+            </button>
+            <button
+              onClick={() => setShowGasModal(true)}
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-emerald-500 text-white rounded-full font-medium transition-colors hover:bg-emerald-600"
+            >
+              <Fuel size={18} />
+              Gas
+            </button>
+          </div>
         </div>
       ) : (
         <div className="py-12">
@@ -132,6 +173,92 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
           >
             Delete Day {day.dayNumber}
           </button>
+        </div>
+      )}
+
+      {/* Gas Stop Modal */}
+      {showGasModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowGasModal(false)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl p-6 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                <Fuel size={24} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Add Gas Stop</h3>
+                <p className="text-sm text-gray-500">Quick fuel stop for your trip</p>
+              </div>
+            </div>
+
+            {/* Station Name (Optional) */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Station Name (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g., Shell, OOMCO, Al Maha..."
+                value={gasStopName}
+                onChange={(e) => setGasStopName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              />
+            </div>
+
+            {/* Cost Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Cost (OMR)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={gasStopCost || ''}
+                  onChange={(e) => setGasStopCost(parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">OMR</span>
+              </div>
+            </div>
+
+            {/* Time Input */}
+            <div className="p-4 rounded-xl border mb-6 bg-emerald-50 border-emerald-200">
+              <label className="block text-sm font-medium text-emerald-700 mb-2">
+                <Clock size={14} className="inline mr-1" />
+                Scheduled Time (Optional)
+              </label>
+              <input
+                type="time"
+                value={gasStopTime}
+                onChange={(e) => setGasStopTime(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-lg font-semibold text-center bg-white border border-emerald-200"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddGasStop}
+                className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-semibold transition-colors hover:bg-emerald-600 flex items-center justify-center gap-2"
+              >
+                <Fuel size={18} />
+                Add Gas Stop
+              </button>
+              <button
+                onClick={() => {
+                  setShowGasModal(false);
+                  setGasStopName('');
+                  setGasStopTime('');
+                  setGasStopCost(0);
+                }}
+                className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

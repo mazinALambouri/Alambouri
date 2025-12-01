@@ -2,7 +2,7 @@ export type PlaceType = 'restaurant' | 'hotel' | 'attraction' | 'beach' | 'shopp
 
 export type PlaceCategory = 'Attractions' | 'Restaurants' | 'Events' | 'Beaches' | 'Shopping' | 'Activities' | 'Workshops' | 'Entertainment' | 'Business' | 'Museums' | 'Lifestyle' | 'Hotels' | 'Prayer';
 
-export type TimeCategory = 'breakfast' | 'lunch' | 'dinner' | 'prayer' | 'hotel' | 'visit' | 'activity';
+export type TimeCategory = 'breakfast' | 'lunch' | 'dinner' | 'prayer' | 'hotel' | 'visit' | 'activity' | 'gas';
 
 export interface Place {
   id: string;

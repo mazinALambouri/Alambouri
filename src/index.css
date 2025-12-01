@@ -61,6 +61,10 @@
   animation: slideIn 0.3s ease-out;
 }
 
+.animate-slide-up {
+  animation: slideIn 0.3s ease-out;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out;
 }
