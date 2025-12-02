@@ -16,6 +16,7 @@ export interface Place {
   currency: string;
   accommodationType?: string;
   location?: string;
+  mapUrl?: string; // Google Maps URL for the place
   distanceFromUser?: number; // in km
   timeCategory?: TimeCategory; // When during the day this place is for
   time?: string; // Specific time for the place (e.g., "09:00", "14:30")

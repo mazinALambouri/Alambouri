@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Trip } from '../types';
 import { FloatingButton } from '../components/FloatingButton';
-import { addDay, deleteDay } from '../lib/db';
+import { addDay, deleteDay, updateTripStartDate } from '../lib/db';
 import { calculateTripStats } from '../lib/utils';
 import { DayDetail } from './DayDetail';
-import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass, CheckSquare, Square, Plus, X, Package, Utensils, Car, Heart, Zap, User, ArrowLeft, ClipboardList } from 'lucide-react';
+import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass, CheckSquare, Square, Plus, X, Package, Utensils, Car, Heart, Zap, User, ArrowLeft, ClipboardList, CalendarDays } from 'lucide-react';
 
 interface TripOverviewProps {
   trip: Trip;
@@ -69,6 +69,11 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
   const [showChecklistPage, setShowChecklistPage] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', type: 'essentials' as ChecklistItem['type'], assignedTo: '' });
+  
+  // Start date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [updatingDate, setUpdatingDate] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Save checklist to localStorage
   useEffect(() => {
@@ -126,6 +131,30 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
       }
       onTripUpdate();
     }
+  };
+
+  const handleStartDateChange = async (newDate: string) => {
+    if (!newDate) return;
+    setUpdatingDate(true);
+    await updateTripStartDate(trip.id, new Date(newDate));
+    setShowDatePicker(false);
+    setUpdatingDate(false);
+    onTripUpdate();
+  };
+
+  // Format date for display
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  // Format date for input value (YYYY-MM-DD)
+  const formatDateForInput = (date: Date) => {
+    return date.toISOString().split('T')[0];
   };
 
   useEffect(() => {
@@ -406,6 +435,24 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
           </div>
         </div>
 
+        {/* Trip Dates - Clickable to change */}
+        <button
+          onClick={() => setShowDatePicker(true)}
+          className="w-full rounded-xl p-3 mb-4 border flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+          style={{ borderColor: '#5A1B1C30' }}
+        >
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#5A1B1C' }}>
+            <CalendarDays size={18} className="text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-gray-500 mb-0.5">Trip Dates</p>
+            <p className="text-sm font-semibold" style={{ color: '#5A1B1C' }}>
+              {formatDate(trip.startDate)} → {formatDate(trip.endDate)}
+            </p>
+          </div>
+          <span className="text-xs text-gray-400">Tap to change</span>
+        </button>
+
         {/* Description */}
         <p className="text-gray-600 text-sm leading-relaxed">
           Embark on an epic road trip across the Gulf Cooperation Council (GCC) countries. Experience diverse cultures, UNESCO World Heritage sites, and the warm hospitality of the Arabian Peninsula.
@@ -482,6 +529,77 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
 
       {/* Floating Add Day Button */}
       <FloatingButton onClick={handleAddDay} />
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowDatePicker(false)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-8 safe-bottom animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#5A1B1C20' }}>
+                <CalendarDays size={24} style={{ color: '#5A1B1C' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Set Start Date</h3>
+                <p className="text-sm text-gray-500">Choose when your trip begins</p>
+              </div>
+            </div>
+
+            {/* Current Dates Info */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Current Start</p>
+                  <p className="font-semibold text-gray-900">{formatDate(trip.startDate)}</p>
+                </div>
+                <div className="text-gray-300">→</div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Current End</p>
+                  <p className="font-semibold text-gray-900">{formatDate(trip.endDate)}</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-2 text-center">{trip.days.length} days total</p>
+            </div>
+
+            {/* Date Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Start Date</label>
+              <input
+                ref={dateInputRef}
+                type="date"
+                defaultValue={formatDateForInput(trip.startDate)}
+                onChange={(e) => handleStartDateChange(e.target.value)}
+                disabled={updatingDate}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-lg font-semibold text-center"
+                style={{ '--tw-ring-color': '#5A1B1C' } as any}
+              />
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                All day dates will be recalculated based on the new start date
+              </p>
+            </div>
+
+            {/* Loading State */}
+            {updatingDate && (
+              <div className="flex items-center justify-center gap-2 py-3 text-gray-600">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin" style={{ borderTopColor: '#5A1B1C' }}></div>
+                <span className="text-sm">Updating dates...</span>
+              </div>
+            )}
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setShowDatePicker(false)}
+              disabled={updatingDate}
+              className="w-full py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Trip, Day, Place, TimeCategory, PlaceCategory } from '../types';
-import { deletePlace, approvePlace, unapprovePlace } from '../lib/db';
+import { deletePlace, approvePlace, unapprovePlace, updatePlace, uploadImage } from '../lib/db';
 import { AddPlaces } from './AddPlaces.tsx';
-import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle, Fuel } from 'lucide-react';
+import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle, Fuel, Pencil, X, Upload, ExternalLink, Map } from 'lucide-react';
 import { addPlaceToDay } from '../lib/db';
 
 // Format time to HH:mm format
@@ -47,6 +47,86 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
   const [gasStopName, setGasStopName] = useState('');
   const [gasStopTime, setGasStopTime] = useState('');
   const [gasStopCost, setGasStopCost] = useState<number>(0);
+
+  // Edit place modal state
+  const [editingPlace, setEditingPlace] = useState<Place | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    location: '',
+    mapUrl: '',
+    price: 0,
+    time: '',
+    timeCategory: 'visit' as TimeCategory,
+  });
+  const [editImageFiles, setEditImageFiles] = useState<File[]>([]);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editImagesToDelete, setEditImagesToDelete] = useState<string[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setEditImageFiles(prev => [...prev, ...newFiles]);
+      newFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditImagePreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const openEditModal = (place: Place) => {
+    setEditingPlace(place);
+    setEditForm({
+      name: place.name,
+      description: place.description,
+      location: place.location || '',
+      mapUrl: place.mapUrl || '',
+      price: place.price,
+      time: place.time || '',
+      timeCategory: place.timeCategory || 'visit',
+    });
+    setEditImageFiles([]);
+    setEditImagePreviews([]);
+    setEditImagesToDelete([]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPlace) return;
+
+    setSavingEdit(true);
+
+    // Upload new images
+    const newUploadedUrls: string[] = [];
+    for (const file of editImageFiles) {
+      const url = await uploadImage(file);
+      if (url) newUploadedUrls.push(url);
+    }
+
+    // Filter out deleted images and add new ones
+    const remainingImages = editingPlace.images.filter(img => !editImagesToDelete.includes(img));
+    const updatedImages = [...newUploadedUrls, ...remainingImages];
+
+    await updatePlace(trip.id, day.id, editingPlace.id, {
+      name: editForm.name,
+      description: editForm.description,
+      location: editForm.location,
+      mapUrl: editForm.mapUrl || undefined,
+      price: editForm.price,
+      time: editForm.time || undefined,
+      timeCategory: editForm.timeCategory,
+      images: updatedImages,
+    });
+
+    setSavingEdit(false);
+    setEditingPlace(null);
+    onUpdate();
+  };
 
   const handleAddGasStop = async () => {
     const gasPlace = {
@@ -123,6 +203,7 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                 number={index + 1}
                 onDelete={() => handleDeletePlace(place.id)}
                 onApprove={() => handleApprovePlace(place)}
+                onEdit={() => openEditModal(place)}
                 currentUserId={CURRENT_USER_ID}
               />
             </div>
@@ -268,6 +349,264 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
           </div>
         </div>
       )}
+
+      {/* Edit Place Modal */}
+      {editingPlace && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setEditingPlace(null)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex-shrink-0 bg-white p-4 border-b border-gray-100 flex items-center justify-between rounded-t-3xl">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Edit Place</h3>
+                <p className="text-sm text-gray-500">Update details for {editingPlace.name}</p>
+              </div>
+              <button
+                onClick={() => setEditingPlace(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 pb-8 safe-bottom space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Name</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm h-20 resize-none"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <MapPin size={14} className="inline mr-1" />
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Google Maps URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <Map size={14} className="inline mr-1" />
+                  Google Maps Link
+                </label>
+                <input
+                  type="url"
+                  placeholder="Paste Google Maps URL here..."
+                  value={editForm.mapUrl}
+                  onChange={(e) => setEditForm({ ...editForm, mapUrl: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Open Google Maps, find the place, tap Share → Copy link
+                </p>
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (OMR)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={editForm.price || ''}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      setEditForm({ ...editForm, price: parseFloat(value) || 0 });
+                    }}
+                    className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
+                    style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">OMR</span>
+                </div>
+              </div>
+
+              {/* Time Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(timeCategoryConfig).map(([key, cfg]) => {
+                    const CategoryIcon = cfg.icon;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, timeCategory: key as TimeCategory })}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          editForm.timeCategory === key
+                            ? 'text-white border-transparent'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
+                        }`}
+                        style={editForm.timeCategory === key ? { backgroundColor: '#5A1B1C' } : {}}
+                      >
+                        <CategoryIcon size={18} className="mx-auto mb-0.5" />
+                        <span className="text-xs font-medium">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Time Input */}
+              <div className="p-4 rounded-xl border" style={{ backgroundColor: '#5A1B1C10', borderColor: '#5A1B1C30' }}>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#5A1B1C' }}>
+                  <Clock size={14} className="inline mr-1" />
+                  Scheduled Time
+                </label>
+                <input
+                  type="time"
+                  value={editForm.time}
+                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 text-lg font-semibold text-center bg-white border"
+                  style={{ borderColor: '#5A1B1C30', '--tw-ring-color': '#5A1B1C' } as any}
+                />
+              </div>
+
+              {/* Images Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Images {editingPlace.images.length > 0 && `(${editingPlace.images.length - editImagesToDelete.length + editImagePreviews.length})`}
+                </label>
+                
+                {/* Existing Images */}
+                {editingPlace.images.length > 0 && (
+                  <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2 mb-2">
+                    {editingPlace.images.map((img, idx) => {
+                      const isMarkedForDeletion = editImagesToDelete.includes(img);
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 ${
+                            isMarkedForDeletion ? 'opacity-50' : ''
+                          }`}
+                        >
+                          <img
+                            src={img}
+                            alt={`Image ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {isMarkedForDeletion ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditImagesToDelete(prev => prev.filter(url => url !== img))}
+                              className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-medium"
+                            >
+                              Undo
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditImagesToDelete(prev => [...prev, img])}
+                              className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* New Image Previews */}
+                {editImagePreviews.length > 0 && (
+                  <div className="flex overflow-x-auto scrollbar-hide gap-2 pb-2 mb-2">
+                    {editImagePreviews.map((preview, idx) => (
+                      <div 
+                        key={idx} 
+                        className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 border-2 border-green-500"
+                      >
+                        <img
+                          src={preview}
+                          alt={`New image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded font-medium">New</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditImageFiles(prev => prev.filter((_, i) => i !== idx));
+                            setEditImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <input
+                  type="file"
+                  ref={editImageInputRef}
+                  accept="image/*"
+                  multiple
+                  onChange={handleEditImageSelect}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => editImageInputRef.current?.click()}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Upload size={16} />
+                  {editingPlace.images.length > 0 || editImagePreviews.length > 0 ? 'Add More Images' : 'Upload Images'}
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit || !editForm.name.trim()}
+                  className="flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-sm disabled:opacity-50"
+                  style={{ backgroundColor: '#5A1B1C' }}
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => setEditingPlace(null)}
+                  disabled={savingEdit}
+                  className="px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -277,10 +616,11 @@ interface TimelinePlaceProps {
   number: number;
   onDelete: () => void;
   onApprove: () => void;
+  onEdit: () => void;
   currentUserId: string;
 }
 
-function TimelinePlace({ place, number, onDelete, onApprove, currentUserId }: TimelinePlaceProps) {
+function TimelinePlace({ place, number, onDelete, onApprove, onEdit, currentUserId }: TimelinePlaceProps) {
   const timeCategory = place.timeCategory || 'visit';
   const config = timeCategoryConfig[timeCategory];
   const Icon = config.icon;
@@ -314,12 +654,20 @@ function TimelinePlace({ place, number, onDelete, onApprove, currentUserId }: Ti
             <Icon size={14} />
             <span className="text-xs font-medium">{config.label}</span>
           </div>
-          <button
-            onClick={onDelete}
-            className="ml-auto p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100"
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100 hover:text-blue-500"
+            >
+              <Pencil size={16} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100 hover:text-red-500"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Place Title */}
@@ -365,12 +713,25 @@ function TimelinePlace({ place, number, onDelete, onApprove, currentUserId }: Ti
         )}
 
         {/* Location & Price */}
-        <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
+        <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 flex-wrap">
           {place.location && (
             <span className="flex items-center gap-1">
               <MapPin size={14} style={{ color: '#5A1B1C' }} />
               {place.location}
             </span>
+          )}
+          {place.mapUrl && (
+            <a
+              href={place.mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-medium transition-colors hover:opacity-90"
+              style={{ backgroundColor: '#4285F4' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink size={12} />
+              Open in Maps
+            </a>
           )}
           {place.price > 0 && (
             <span className="font-medium" style={{ color: '#5A1B1C' }}>

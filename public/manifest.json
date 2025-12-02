@@ -1,0 +1,24 @@
+{
+  "name": "Gulf Road Trip Planner",
+  "short_name": "Gulf Trip",
+  "description": "Plan your Gulf road trip with timeline itinerary",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5A1B1C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

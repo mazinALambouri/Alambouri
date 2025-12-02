@@ -16,6 +16,7 @@ function mapPlace(row: any): Place {
     currency: row.currency || 'OMR',
     accommodationType: row.accommodation_type,
     location: row.location,
+    mapUrl: row.map_url,
     distanceFromUser: row.distance_from_user,
     timeCategory: row.time_category,
     time: row.time,
@@ -191,6 +192,38 @@ export async function saveTrip(trip: Trip): Promise<void> {
     .eq('id', trip.id);
 }
 
+export async function updateTripStartDate(tripId: string, newStartDate: Date): Promise<void> {
+  // Get the current trip to know how many days it has
+  const trip = await getTrip(tripId);
+  if (!trip) return;
+
+  const dayCount = trip.days.length;
+  const newEndDate = new Date(newStartDate);
+  newEndDate.setDate(newEndDate.getDate() + dayCount - 1);
+
+  // Update trip dates
+  await supabase
+    .from('trips')
+    .update({
+      start_date: newStartDate.toISOString(),
+      end_date: newEndDate.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tripId);
+
+  // Update each day's date
+  const updates = trip.days.map((day, index) => {
+    const dayDate = new Date(newStartDate);
+    dayDate.setDate(dayDate.getDate() + index);
+    return supabase
+      .from('days')
+      .update({ date: dayDate.toISOString() })
+      .eq('id', day.id);
+  });
+
+  await Promise.all(updates);
+}
+
 export async function deleteTrip(id: string): Promise<void> {
   await supabase.from('trips').delete().eq('id', id);
 }
@@ -303,6 +336,7 @@ export async function addPlaceToDay(
       currency: place.currency || 'OMR',
       accommodation_type: place.accommodationType,
       location: place.location,
+      map_url: place.mapUrl,
       distance_from_user: place.distanceFromUser,
       time_category: place.timeCategory,
       time: place.time,
@@ -365,18 +399,25 @@ export async function updatePlace(
   updates: Partial<Place>
 ): Promise<void> {
   const dbUpdates: any = {};
-  if (updates.name) dbUpdates.name = updates.name;
-  if (updates.price) dbUpdates.price = updates.price;
-  if (updates.description) dbUpdates.description = updates.description;
-  if (updates.location) dbUpdates.location = updates.location;
-  if (updates.time) dbUpdates.time = updates.time;
-  if (updates.timeCategory) dbUpdates.time_category = updates.timeCategory;
-  // ... map other fields as needed
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.price !== undefined) dbUpdates.price = updates.price;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.location !== undefined) dbUpdates.location = updates.location;
+  if (updates.mapUrl !== undefined) dbUpdates.map_url = updates.mapUrl || null;
+  if (updates.time !== undefined) dbUpdates.time = updates.time || null;
+  if (updates.timeCategory !== undefined) dbUpdates.time_category = updates.timeCategory;
+  if (updates.images !== undefined) dbUpdates.images = updates.images;
+  if (updates.type !== undefined) dbUpdates.type = updates.type;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
 
-  await supabase
+  const { error } = await supabase
     .from('places')
     .update(dbUpdates)
     .eq('id', placeId);
+
+  if (error) {
+    console.error('Error updating place:', error);
+  }
 }
 
 export async function deletePlace(
