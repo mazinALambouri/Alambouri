@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { Trip, Day, Place, TimeCategory, PlaceCategory } from '../types';
-import { deletePlace, approvePlace, unapprovePlace, updatePlace, uploadImage } from '../lib/db';
+import { deletePlace, approvePlace, unapprovePlace, updatePlace, uploadImage, movePlaceToDay } from '../lib/db';
 import { AddPlaces } from './AddPlaces.tsx';
-import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle, Fuel, Pencil, X, Upload, ExternalLink, Map } from 'lucide-react';
+import { Coffee, Sun, MapPin, Moon, Hotel, UtensilsCrossed, Trash2, Clock, Check, AlertCircle, Fuel, Pencil, X, Upload, ExternalLink, Map, ArrowRightLeft } from 'lucide-react';
 import { addPlaceToDay } from '../lib/db';
 
 // Format time to HH:mm format
@@ -64,6 +64,19 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
   const [editImagesToDelete, setEditImagesToDelete] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
+
+  // Move place modal state
+  const [movingPlace, setMovingPlace] = useState<Place | null>(null);
+  const [movingToDay, setMovingToDay] = useState(false);
+
+  const handleMovePlace = async (targetDayId: string) => {
+    if (!movingPlace) return;
+    setMovingToDay(true);
+    await movePlaceToDay(movingPlace.id, targetDayId);
+    setMovingToDay(false);
+    setMovingPlace(null);
+    onUpdate();
+  };
 
   const handleEditImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -204,6 +217,7 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                 onDelete={() => handleDeletePlace(place.id)}
                 onApprove={() => handleApprovePlace(place)}
                 onEdit={() => openEditModal(place)}
+                onMove={() => setMovingPlace(place)}
                 currentUserId={CURRENT_USER_ID}
               />
             </div>
@@ -438,10 +452,16 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
                     type="text"
                     inputMode="decimal"
                     placeholder="0.00"
-                    value={editForm.price || ''}
+                    value={editForm.price === 0 ? '' : editForm.price}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setEditForm({ ...editForm, price: parseFloat(value) || 0 });
+                      const value = e.target.value;
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setEditForm({ ...editForm, price: value === '' ? 0 : Number(value) || value as any });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const num = parseFloat(e.target.value) || 0;
+                      setEditForm({ ...editForm, price: num });
                     }}
                     className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm"
                     style={{ '--tw-ring-color': '#5A1B1C' } as any}
@@ -607,6 +627,74 @@ export function DayDetail({ trip, day, onUpdate, onDeleteDay }: DayDetailProps) 
           </div>
         </div>
       )}
+
+      {/* Move Place Modal */}
+      {movingPlace && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setMovingPlace(null)}>
+          <div 
+            className="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-8 safe-bottom animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#5A1B1C20' }}>
+                <ArrowRightLeft size={24} style={{ color: '#5A1B1C' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Move Place</h3>
+                <p className="text-sm text-gray-500">Move "{movingPlace.name}" to another day</p>
+              </div>
+            </div>
+
+            {/* Current Day Info */}
+            <div className="bg-gray-50 rounded-xl p-3 mb-4">
+              <p className="text-xs text-gray-500 mb-1">Currently in</p>
+              <p className="font-semibold text-gray-900">Day {day.dayNumber}</p>
+            </div>
+
+            {/* Day Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">Select destination day</label>
+              <div className="grid grid-cols-5 gap-2 max-h-48 overflow-y-auto">
+                {trip.days.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleMovePlace(d.id)}
+                    disabled={d.id === day.id || movingToDay}
+                    className={`p-3 rounded-xl border text-center transition-all ${
+                      d.id === day.id
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-lg font-bold block">{d.dayNumber}</span>
+                    <span className="text-[10px] text-gray-500">
+                      {d.places.length} place{d.places.length !== 1 ? 's' : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Loading State */}
+            {movingToDay && (
+              <div className="flex items-center justify-center gap-2 py-3 text-gray-600 mb-4">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin" style={{ borderTopColor: '#5A1B1C' }}></div>
+                <span className="text-sm">Moving place...</span>
+              </div>
+            )}
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setMovingPlace(null)}
+              disabled={movingToDay}
+              className="w-full py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors text-gray-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -617,10 +705,11 @@ interface TimelinePlaceProps {
   onDelete: () => void;
   onApprove: () => void;
   onEdit: () => void;
+  onMove: () => void;
   currentUserId: string;
 }
 
-function TimelinePlace({ place, number, onDelete, onApprove, onEdit, currentUserId }: TimelinePlaceProps) {
+function TimelinePlace({ place, number, onDelete, onApprove, onEdit, onMove, currentUserId }: TimelinePlaceProps) {
   const timeCategory = place.timeCategory || 'visit';
   const config = timeCategoryConfig[timeCategory];
   const Icon = config.icon;
@@ -655,6 +744,13 @@ function TimelinePlace({ place, number, onDelete, onApprove, onEdit, currentUser
             <span className="text-xs font-medium">{config.label}</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={onMove}
+              className="p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100 hover:text-purple-500"
+              title="Move to another day"
+            >
+              <ArrowRightLeft size={16} />
+            </button>
             <button
               onClick={onEdit}
               className="p-1.5 text-gray-400 rounded-lg transition-colors hover:bg-gray-100 hover:text-blue-500"

@@ -33,15 +33,34 @@ export interface Day {
   places: Place[];
 }
 
+export type TripType = 'road_trip' | 'plane_trip' | 'cruise' | 'train_trip' | 'backpacking' | 'business' | 'other';
+
+export type TripPurpose = 'leisure' | 'business' | 'family' | 'honeymoon' | 'adventure' | 'cultural' | 'religious' | 'medical' | 'education' | 'other';
+
 export interface Trip {
   id: string;
   name: string;
   location: string;
+  tripType: TripType;
+  purpose: TripPurpose;
+  description?: string;
   startDate: Date;
   endDate: Date;
   days: Day[];
+  userId: string;
+  sharedWith?: string[]; // Array of user IDs this trip is shared with
+  isPublic?: boolean;
+  coverImage?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  avatar?: string;
+  createdAt: Date;
 }
 
 export interface RecommendedPlace extends Omit<Place, 'id'> {

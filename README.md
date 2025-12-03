@@ -1,12 +1,13 @@
-# Trip Planner PWA
+# Alambouri - Multi-Trip Travel Planning App
 
-A modern Progressive Web App for planning trips with complete offline support.
+A comprehensive travel planning application with authentication, multiple trip management, and sharing capabilities.
 
 ## Features
 
-- 🌍 Plan multi-day trips with detailed itineraries
-- 📱 Works completely offline
-- 💾 All data stored locally with IndexedDB
+### 🔐 Authentication
+- Sign up / Sign in with email and password
+- User profiles with full name
+- Secure session management
 - 🎨 Beautiful, modern UI with smooth animations
 - 📊 Automatic cost and distance calculations
 - 🏠 Install to home screen on iOS and Android

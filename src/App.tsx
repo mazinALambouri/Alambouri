@@ -1,50 +1,74 @@
 import { useState, useEffect } from 'react';
-import { Trip } from './types';
-import { getAllTrips, getTrip, createTrip } from './lib/db';
-import { populateGulfItinerary } from './lib/itinerary-helper';
+import { Trip, User } from './types';
+import { getTrip } from './lib/db';
+import { supabase } from './lib/supabase';
 import { TripOverview } from './screens/TripOverview';
-import { Button } from './components/Button';
-import { Plane } from 'lucide-react';
+import { Auth } from './screens/Auth';
+import { TripsDashboard } from './screens/TripsDashboard';
+import { ShareTrip } from './screens/ShareTrip';
+import { Loader2 } from 'lucide-react';
 
 function App() {
-  const [, setTrips] = useState<Trip[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [tripsNeedRefresh, setTripsNeedRefresh] = useState(false);
 
   useEffect(() => {
-    loadTrips();
+    checkAuth();
+    
+    // Listen for auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const userData: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          fullName: session.user.user_metadata?.full_name || '',
+          createdAt: new Date(session.user.created_at)
+        };
+        setUser(userData);
+      } else {
+        setUser(null);
+        setSelectedTrip(null);
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, []);
 
-  const loadTrips = async () => {
+  const checkAuth = async () => {
     try {
-      const allTrips = await getAllTrips();
-      setTrips(allTrips);
+      const { data: { session } } = await supabase.auth.getSession();
       
-      // Auto-select the first trip or create a demo trip
-      if (allTrips.length > 0) {
-        setSelectedTrip(allTrips[0]);
-      } else {
-        // Create a 10-day Gulf road trip
-        const startDate = new Date('2024-12-15');
-        const endDate = new Date('2024-12-24');
-        const demoTrip = await createTrip(
-          'Gulf Road Trip Adventure',
-          'Oman, Qatar, Saudi Arabia, Kuwait',
-          startDate,
-          endDate
-        );
-        
-        // Pre-populate with itinerary
-        await populateGulfItinerary(demoTrip);
-        
-        // Reload the trip to get the populated places
-        const populatedTrip = await getTrip(demoTrip.id);
-        
-        setTrips([populatedTrip || demoTrip]);
-        setSelectedTrip(populatedTrip || demoTrip);
+      if (session?.user) {
+        const userData: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          fullName: session.user.user_metadata?.full_name || '',
+          createdAt: new Date(session.user.created_at)
+        };
+        setUser(userData);
       }
     } catch (error) {
-      console.error('Error loading trips:', error);
+      console.error('Error checking auth:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectTrip = async (trip: Trip) => {
+    setLoading(true);
+    try {
+      // Load full trip data with days and places
+      const fullTrip = await getTrip(trip.id);
+      if (fullTrip) {
+        setSelectedTrip(fullTrip);
+      }
+    } catch (error) {
+      console.error('Error loading trip:', error);
     } finally {
       setLoading(false);
     }
@@ -55,51 +79,71 @@ function App() {
       const updatedTrip = await getTrip(selectedTrip.id);
       if (updatedTrip) {
         setSelectedTrip(updatedTrip);
-        // Update the trip in the list as well
-        setTrips(prevTrips => 
-          prevTrips.map(t => t.id === updatedTrip.id ? updatedTrip : t)
-        );
       }
     }
+  };
+
+  const handleBackToTrips = () => {
+    setSelectedTrip(null);
+    setTripsNeedRefresh(true);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSelectedTrip(null);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Plane size={48} className="text-accent-600 animate-bounce mx-auto mb-4" />
-          <p className="text-gray-600">Loading your trips...</p>
+          <Loader2 size={32} className="animate-spin mx-auto mb-4" style={{ color: '#5A1B1C' }} />
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
   }
 
+  // Not authenticated - show auth screen
+  if (!user) {
+    return <Auth onAuthSuccess={() => checkAuth()} />;
+  }
+
+  // User authenticated, trip selected - show trip overview
   if (selectedTrip) {
     return (
-      <TripOverview 
-        trip={selectedTrip} 
-        onTripUpdate={refreshCurrentTrip}
-      />
+      <>
+        <TripOverview 
+          trip={selectedTrip} 
+          onTripUpdate={refreshCurrentTrip}
+          onBack={handleBackToTrips}
+          onShare={() => setShowShareModal(true)}
+          onSignOut={handleSignOut}
+        />
+
+        {showShareModal && (
+          <ShareTrip
+            trip={selectedTrip}
+            onClose={() => setShowShareModal(false)}
+            onUpdate={() => {
+              refreshCurrentTrip();
+              setTripsNeedRefresh(true);
+            }}
+          />
+        )}
+      </>
     );
   }
 
-  // Empty state
+  // User authenticated, no trip selected - show trips dashboard
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="text-center max-w-md">
-        <Plane size={64} className="text-accent-600 mx-auto mb-6" />
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Trip Planner</h1>
-        <p className="text-gray-600 mb-8">
-          Start planning your perfect trip. Add places, organize days, and track your adventures.
-        </p>
-        <Button 
-          onClick={loadTrips}
-          size="lg"
-        >
-          Get Started
-        </Button>
-      </div>
-    </div>
+    <TripsDashboard 
+      userId={user.id}
+      onSelectTrip={handleSelectTrip}
+      onSignOut={handleSignOut}
+      key={tripsNeedRefresh ? 'refresh' : 'normal'}
+    />
   );
 }
 

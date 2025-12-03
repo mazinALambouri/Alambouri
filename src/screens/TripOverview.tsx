@@ -4,11 +4,14 @@ import { FloatingButton } from '../components/FloatingButton';
 import { addDay, deleteDay, updateTripStartDate } from '../lib/db';
 import { calculateTripStats } from '../lib/utils';
 import { DayDetail } from './DayDetail';
-import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass, CheckSquare, Square, Plus, X, Package, Utensils, Car, Heart, Zap, User, ArrowLeft, ClipboardList, CalendarDays } from 'lucide-react';
+import { Clock, MapPin, Calendar, List, DollarSign, Route, Compass, CheckSquare, Square, Plus, X, Package, Utensils, Car, Heart, Zap, User, ArrowLeft, ClipboardList, CalendarDays, ExternalLink, Share2, LogOut } from 'lucide-react';
 
 interface TripOverviewProps {
   trip: Trip;
   onTripUpdate: () => void;
+  onBack?: () => void;
+  onShare?: () => void;
+  onSignOut?: () => void;
 }
 
 // Checklist item type
@@ -54,7 +57,7 @@ const defaultChecklist: ChecklistItem[] = [
   { id: '20', name: 'Tire Pressure Gauge', checked: false, type: 'car' },
 ];
 
-export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
+export function TripOverview({ trip, onTripUpdate, onBack, onShare, onSignOut }: TripOverviewProps) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(
     trip.days.length > 0 ? trip.days[0].id : null
   );
@@ -361,26 +364,37 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
           alt={trip.name}
           className="w-full h-full object-cover"
         />
-        {/* Checklist Icon - Top Right */}
-        <button
-          onClick={() => setShowChecklistPage(true)}
-          className="absolute top-safe right-4 w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:bg-white transition-colors"
-        >
-          <ClipboardList size={22} style={{ color: '#5A1B1C' }} />
-          {/* Badge showing unchecked count */}
-          {checklist.length - checkedCount > 0 && (
-            <span 
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
-              style={{ backgroundColor: '#5A1B1C' }}
+        {/* Navigation Icons - inside the hero image */}
+        <div className="absolute top-0 left-0 right-0 flex items-start justify-between px-3 sm:px-4 pt-3 sm:pt-4" style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}>
+          <button
+            onClick={onBack}
+            className="w-10 h-10 sm:w-11 sm:h-11 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-all"
+          >
+            <ArrowLeft size={20} className="sm:hidden" />
+            <ArrowLeft size={22} className="hidden sm:block" />
+          </button>
+          
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={onShare}
+              className="w-10 h-10 sm:w-11 sm:h-11 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-all"
             >
-              {checklist.length - checkedCount}
-            </span>
-          )}
-        </button>
+              <Share2 size={18} className="sm:hidden" />
+              <Share2 size={20} className="hidden sm:block" />
+            </button>
+            <button
+              onClick={onSignOut}
+              className="w-10 h-10 sm:w-11 sm:h-11 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50 transition-all"
+            >
+              <LogOut size={18} className="sm:hidden" />
+              <LogOut size={20} className="hidden sm:block" />
+            </button>
+          </div>
+        </div>
         {/* Trip Stats Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
-          <h1 className="text-3xl font-bold text-white mb-2">{trip.name}</h1>
-          <div className="text-white/90 text-sm">{trip.days.length} Days • {stats.totalPlaces} Experiences</div>
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 sm:p-6 pb-8 sm:pb-10">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">{trip.name}</h1>
+          <div className="text-white/90 text-xs sm:text-sm">{trip.days.length} Days • {stats.totalPlaces} Experiences</div>
         </div>
       </div>
 
@@ -461,33 +475,53 @@ export function TripOverview({ trip, onTripUpdate }: TripOverviewProps) {
 
       {/* View Toggle & Day Tabs */}
       <div className="border-b border-gray-200 bg-white sticky top-0 z-20 safe-top">
-        <div className="flex items-center justify-between px-6 py-2 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-gray-100">
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode('detail')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                 viewMode === 'detail'
                   ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               style={viewMode === 'detail' ? { backgroundColor: '#5A1B1C' } : {}}
             >
-              <List size={16} />
+              <List size={14} className="sm:hidden" />
+              <List size={16} className="hidden sm:block" />
               Day View
             </button>
             <button
               onClick={() => setViewMode('timeline')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                 viewMode === 'timeline'
                   ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               style={viewMode === 'timeline' ? { backgroundColor: '#5A1B1C' } : {}}
             >
-              <Calendar size={16} />
+              <Calendar size={14} className="sm:hidden" />
+              <Calendar size={16} className="hidden sm:block" />
               Timeline
             </button>
           </div>
+          {/* Checklist Icon - same level as view toggle */}
+          <button
+            onClick={() => setShowChecklistPage(true)}
+            className="relative flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            <ClipboardList size={14} className="sm:hidden" style={{ color: '#5A1B1C' }} />
+            <ClipboardList size={16} className="hidden sm:block" style={{ color: '#5A1B1C' }} />
+            <span className="hidden sm:inline">Checklist</span>
+            {/* Badge showing unchecked count */}
+            {checklist.length - checkedCount > 0 && (
+              <span 
+                className="ml-1 min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] rounded-full text-white text-[10px] sm:text-xs font-bold flex items-center justify-center"
+                style={{ backgroundColor: '#5A1B1C' }}
+              >
+                {checklist.length - checkedCount}
+              </span>
+            )}
+          </button>
         </div>
         {viewMode === 'detail' && (
           <div className="flex overflow-x-auto scrollbar-hide px-6">
@@ -650,37 +684,63 @@ function TimelineOverview({ trip }: TimelineOverviewProps) {
                   <div className="absolute -left-[27px] w-3 h-3 rounded-full border-2 border-white" style={{ backgroundColor: '#5A1B1C' }} />
                   
                   {/* Place Card */}
-                  <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                    {/* Time Badge - Always show */}
-                    <div className="flex items-center gap-1 mb-2">
-                      <Clock size={16} className={place.time ? '' : 'text-gray-300'} style={place.time ? { color: '#5A1B1C' } : {}} />
-                      <span className={`text-sm font-semibold ${place.time ? '' : 'text-gray-400'}`} style={place.time ? { color: '#5A1B1C' } : {}}>
-                        {place.time ? formatTime(place.time) : 'No time set'}
-                      </span>
-                    </div>
-                    
-                    {/* Place Name */}
-                    <h4 className="font-bold text-gray-900 mb-2">{place.name}</h4>
-                    
-                    {/* Location & Price */}
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                      {place.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin size={14} style={{ color: '#5A1B1C' }} />
-                          {place.location}
-                        </span>
-                      )}
-                      {place.price > 0 && (
-                        <span className="font-medium" style={{ color: '#5A1B1C' }}>
-                          {place.price} {place.currency}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Description */}
-                    {place.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2">{place.description}</p>
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow p-3 flex gap-3">
+                    {/* Place Image - Small Square */}
+                    {place.images.length > 0 && (
+                      <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                        <img
+                          src={place.images[0]}
+                          alt={place.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {place.images.length > 1 && (
+                          <span className="absolute bottom-0.5 right-0.5 px-1 py-0.5 bg-black/60 text-white text-[10px] rounded">
+                            +{place.images.length - 1}
+                          </span>
+                        )}
+                      </div>
                     )}
+                    
+                    <div className="flex-1 min-w-0">
+                      {/* Time Badge - Always show */}
+                      <div className="flex items-center gap-1 mb-1">
+                        <Clock size={12} className={place.time ? '' : 'text-gray-300'} style={place.time ? { color: '#5A1B1C' } : {}} />
+                        <span className={`text-xs font-semibold ${place.time ? '' : 'text-gray-400'}`} style={place.time ? { color: '#5A1B1C' } : {}}>
+                          {place.time ? formatTime(place.time) : 'No time set'}
+                        </span>
+                      </div>
+                      
+                      {/* Place Name */}
+                      <h4 className="font-bold text-gray-900 text-sm mb-1 truncate">{place.name}</h4>
+                      
+                      {/* Location, Maps & Price */}
+                      <div className="flex items-center gap-2 text-xs text-gray-600 flex-wrap">
+                        {place.location && (
+                          <span className="flex items-center gap-0.5 truncate max-w-[120px]">
+                            <MapPin size={10} style={{ color: '#5A1B1C' }} />
+                            {place.location}
+                          </span>
+                        )}
+                        {place.mapUrl && (
+                          <a
+                            href={place.mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-white text-[10px] font-medium hover:opacity-90"
+                            style={{ backgroundColor: '#4285F4' }}
+                          >
+                            <ExternalLink size={8} />
+                            Maps
+                          </a>
+                        )}
+                        {place.price > 0 && (
+                          <span className="font-medium" style={{ color: '#5A1B1C' }}>
+                            {place.price} OMR
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

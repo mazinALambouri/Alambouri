@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ArrowLeft, Clock, MapPin, Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Search, ArrowLeft, Clock, MapPin, Plus, X, Upload, Image as ImageIcon, Map } from 'lucide-react';
 import { Trip, Day, PlaceCategory, TimeCategory, RecommendedPlace } from '../types';
 import { addPlaceToDay, fetchRecommendations, uploadImage, updateRecommendation, deleteRecommendations, createRecommendation } from '../lib/db';
 import { Trash2, Check } from 'lucide-react';
@@ -88,6 +88,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
     name: '',
     description: '',
     location: '',
+    mapUrl: '',
     price: 0,
     currency: 'OMR',
     timeCategory: 'visit' as TimeCategory,
@@ -120,6 +121,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
     name: '',
     description: '',
     location: '',
+    mapUrl: '',
     price: 0,
     timeCategory: 'visit' as TimeCategory,
     category: 'Attractions' as PlaceCategory,
@@ -193,6 +195,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       price: newRecommendation.price,
       currency: 'OMR',
       location: newRecommendation.location || '',
+      mapUrl: newRecommendation.mapUrl || undefined,
       timeCategory: newRecommendation.timeCategory,
     });
 
@@ -205,6 +208,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       name: '',
       description: '',
       location: '',
+      mapUrl: '',
       price: 0,
       timeCategory: 'visit',
       category: 'Attractions',
@@ -297,6 +301,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       price: customPlace.price,
       currency: 'OMR',
       location: customPlace.location || 'Custom Location',
+      mapUrl: customPlace.mapUrl || undefined,
       distanceFromUser: 0,
       timeCategory: customPlace.timeCategory,
       time: customPlace.time || undefined,
@@ -312,6 +317,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
       name: '',
       description: '',
       location: '',
+      mapUrl: '',
       price: 0,
       currency: 'OMR',
       timeCategory: 'visit',
@@ -432,6 +438,24 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" style={{ '--tw-ring-color': '#5A1B1C' } as any}
               />
             </div>
+
+            {/* Google Maps URL */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <Map size={14} className="inline mr-1" />
+                Google Maps Link
+              </label>
+              <input
+                type="url"
+                placeholder="Paste Google Maps URL here..."
+                value={customPlace.mapUrl}
+                onChange={(e) => setCustomPlace({ ...customPlace, mapUrl: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" style={{ '--tw-ring-color': '#5A1B1C' } as any}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Open Google Maps, find the place, tap Share → Copy link
+              </p>
+            </div>
             
             {/* Time - Prominent */}
             <div className="p-4 rounded-xl border" style={{ backgroundColor: '#5A1B1C10', borderColor: '#5A1B1C30' }}>
@@ -479,10 +503,18 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
-                  value={customPlace.price || ''}
+                  value={customPlace.price === 0 ? '' : customPlace.price}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    setCustomPlace({ ...customPlace, price: parseFloat(value) || 0 });
+                    const value = e.target.value;
+                    // Allow empty, digits, and one decimal point
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setCustomPlace({ ...customPlace, price: value === '' ? 0 : Number(value) || value as any });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Convert to proper number on blur
+                    const num = parseFloat(e.target.value) || 0;
+                    setCustomPlace({ ...customPlace, price: num });
                   }}
                   className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" style={{ '--tw-ring-color': '#5A1B1C' } as any}
                 />
@@ -978,10 +1010,16 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                     type="text"
                     inputMode="decimal"
                     placeholder="0.00"
-                    value={editedRecommendation.price || ''}
+                    value={editedRecommendation.price === 0 ? '' : editedRecommendation.price}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setEditedRecommendation({ ...editedRecommendation, price: parseFloat(value) || 0 });
+                      const value = e.target.value;
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setEditedRecommendation({ ...editedRecommendation, price: value === '' ? 0 : Number(value) || value as any });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const num = parseFloat(e.target.value) || 0;
+                      setEditedRecommendation({ ...editedRecommendation, price: num });
                     }}
                     className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
                     style={{ '--tw-ring-color': '#5A1B1C' } as any}
@@ -1165,6 +1203,25 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                 />
               </div>
 
+              {/* Google Maps URL */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  <Map size={14} className="inline mr-1" />
+                  Google Maps Link
+                </label>
+                <input
+                  type="url"
+                  placeholder="Paste Google Maps URL here..."
+                  value={newRecommendation.mapUrl}
+                  onChange={(e) => setNewRecommendation({ ...newRecommendation, mapUrl: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
+                  style={{ '--tw-ring-color': '#5A1B1C' } as any}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Open Google Maps, find the place, tap Share → Copy link
+                </p>
+              </div>
+
               {/* Price */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Price (OMR)</label>
@@ -1173,10 +1230,16 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                     type="text"
                     inputMode="decimal"
                     placeholder="0.00"
-                    value={newRecommendation.price || ''}
+                    value={newRecommendation.price === 0 ? '' : newRecommendation.price}
                     onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      setNewRecommendation({ ...newRecommendation, price: parseFloat(value) || 0 });
+                      const value = e.target.value;
+                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                        setNewRecommendation({ ...newRecommendation, price: value === '' ? 0 : Number(value) || value as any });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const num = parseFloat(e.target.value) || 0;
+                      setNewRecommendation({ ...newRecommendation, price: num });
                     }}
                     className="w-full px-4 py-2.5 pr-16 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 text-sm" 
                     style={{ '--tw-ring-color': '#5A1B1C' } as any}
@@ -1295,6 +1358,7 @@ export function AddPlaces({ trip, day, onClose }: AddPlacesProps) {
                       name: '',
                       description: '',
                       location: '',
+                      mapUrl: '',
                       price: 0,
                       timeCategory: 'visit',
                       category: 'Attractions',

@@ -41,9 +41,16 @@ function mapTrip(row: any, days: Day[] = []): Trip {
     id: row.id,
     name: row.name,
     location: row.location,
+    tripType: row.trip_type || 'road_trip',
+    purpose: row.purpose || 'leisure',
+    description: row.description,
     startDate: new Date(row.start_date),
     endDate: new Date(row.end_date),
     days: days,
+    userId: row.user_id || '',
+    sharedWith: row.shared_with || [],
+    isPublic: row.is_public || false,
+    coverImage: row.cover_image,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -437,6 +444,20 @@ export async function reorderPlaces(
   // For now, we can skip or implement it if needed.
 }
 
+export async function movePlaceToDay(
+  placeId: string,
+  newDayId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('places')
+    .update({ day_id: newDayId })
+    .eq('id', placeId);
+
+  if (error) {
+    console.error('Error moving place:', error);
+  }
+}
+
 // --- Recommendations Functions ---
 
 function mapRecommendation(row: any): RecommendedPlace {
@@ -451,6 +472,7 @@ function mapRecommendation(row: any): RecommendedPlace {
     price: parseFloat(row.price) || 0,
     currency: row.currency || 'OMR',
     location: row.location,
+    mapUrl: row.map_url,
     distanceFromUser: row.distance_from_user,
     dateRange: row.date_range,
     featured: row.featured || false,
@@ -522,6 +544,7 @@ export async function createRecommendation(
     price: number;
     currency: string;
     location: string;
+    mapUrl?: string;
     timeCategory: string;
     featured?: boolean;
   }
@@ -537,6 +560,7 @@ export async function createRecommendation(
       price: recommendation.price,
       currency: recommendation.currency,
       location: recommendation.location,
+      map_url: recommendation.mapUrl,
       time_category: recommendation.timeCategory,
       featured: recommendation.featured || false,
     })
